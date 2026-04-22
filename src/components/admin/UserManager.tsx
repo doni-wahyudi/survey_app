@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../store/useApp';
 import { User, Shield, MapPin, Mail, Loader, UserPlus, X } from 'lucide-react';
-import { supabase, TABLES, createInvitation } from '../../lib/supabase';
+import { supabase, TABLES, createNewUser } from '../../lib/supabase';
 import type { Profile } from '../../types';
 
 export default function UserManager() {
@@ -9,10 +9,14 @@ export default function UserManager() {
     const [loading, setLoading] = useState(true);
     const [users, setUsers] = useState<Profile[]>([]);
     
-    // Invitation Modal State
+    // Create User Modal State
     const [showModal, setShowModal] = useState(false);
-    const [inviteEmail, setInviteEmail] = useState('');
-    const [inviteRole, setInviteRole] = useState<'surveyor' | 'admin'>('surveyor');
+    const [form, setForm] = useState({
+        email: '',
+        password: '',
+        fullName: '',
+        role: 'surveyor' as 'surveyor' | 'admin'
+    });
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
@@ -39,20 +43,20 @@ export default function UserManager() {
         }
     };
 
-    const handleInvite = async (e: React.FormEvent) => {
+    const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!inviteEmail) return;
+        if (!form.email || !form.password || !form.fullName) return;
 
         setSubmitting(true);
         try {
-            await createInvitation(inviteEmail, inviteRole);
-            addToast('Undangan berhasil dibuat. Pengguna dapat mendaftar dengan email ini.', 'success');
+            await createNewUser(form.email, form.password, form.fullName, form.role);
+            addToast('Pengguna berhasil dibuat.', 'success');
             setShowModal(false);
-            setInviteEmail('');
-            setInviteRole('surveyor');
+            setForm({ email: '', password: '', fullName: '', role: 'surveyor' });
+            fetchUsers(); // Refresh list
         } catch (error: any) {
-            console.error('Error creating invitation:', error);
-            addToast(`Gagal membuat undangan: ${error.message}`, 'error');
+            console.error('Error creating user:', error);
+            addToast(`Gagal membuat pengguna: ${error.message}`, 'error');
         } finally {
             setSubmitting(false);
         }
@@ -144,22 +148,49 @@ export default function UserManager() {
                         width: '100%', maxWidth: 400, padding: 'var(--space-lg)'
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
-                            <h3 style={{ margin: 0 }}>Undang Pengguna</h3>
+                            <h3 style={{ margin: 0 }}>Tambah Pengguna Baru</h3>
                             <button className="btn-icon btn-ghost" onClick={() => setShowModal(false)} disabled={submitting}>
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <form onSubmit={handleInvite}>
+                        <form onSubmit={handleCreateUser}>
+                            <div className="form-group">
+                                <label className="form-label">Nama Lengkap</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Nama Lengkap"
+                                    value={form.fullName}
+                                    onChange={e => setForm({...form, fullName: e.target.value})}
+                                    required
+                                    disabled={submitting}
+                                />
+                            </div>
+
                             <div className="form-group">
                                 <label className="form-label">Email</label>
                                 <input
                                     type="email"
                                     className="form-input"
                                     placeholder="email@contoh.com"
-                                    value={inviteEmail}
-                                    onChange={e => setInviteEmail(e.target.value)}
+                                    value={form.email}
+                                    onChange={e => setForm({...form, email: e.target.value})}
                                     required
+                                    disabled={submitting}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Password</label>
+                                <input
+                                    type="password"
+                                    className="form-input"
+                                    placeholder="Min. 6 karakter"
+                                    value={form.password}
+                                    onChange={e => setForm({...form, password: e.target.value})}
+                                    required
+                                    minLength={6}
                                     disabled={submitting}
                                 />
                             </div>
@@ -168,8 +199,8 @@ export default function UserManager() {
                                 <label className="form-label">Peran</label>
                                 <select 
                                     className="form-select"
-                                    value={inviteRole}
-                                    onChange={e => setInviteRole(e.target.value as 'surveyor' | 'admin')}
+                                    value={form.role}
+                                    onChange={e => setForm({...form, role: e.target.value as 'surveyor' | 'admin'})}
                                     disabled={submitting}
                                 >
                                     <option value="surveyor">Surveyor</option>
@@ -180,7 +211,7 @@ export default function UserManager() {
                             <div style={{ marginTop: 'var(--space-lg)' }}>
                                 <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
                                     {submitting ? <Loader size={16} className="spin-animation" /> : <UserPlus size={16} />}
-                                    {submitting ? ' Mengundang...' : ' Kirim Undangan'}
+                                    {submitting ? ' Memproses...' : ' Buat Pengguna'}
                                 </button>
                             </div>
                         </form>
