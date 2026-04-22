@@ -54,7 +54,7 @@ export default function ProfileEditor({ onBack }: Props) {
 
         setPwdSubmitting(true);
         try {
-            await changePassword(pwdForm.newPassword);
+            if (user) await changePassword(user.id, pwdForm.newPassword);
             addToast('Password berhasil diperbarui', 'success');
             setPwdForm({ newPassword: '', confirmPassword: '' });
         } catch (error: any) {

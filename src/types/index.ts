@@ -90,6 +90,7 @@ export interface Questionnaire {
     questions: Question[];
     is_active: boolean;
     assigned_surveyors: string[];
+    respondent_assignments: Record<string, string[]>; // { [surveyorId: string]: respondentId[] }
     created_at: string;
     created_by: string;
 }

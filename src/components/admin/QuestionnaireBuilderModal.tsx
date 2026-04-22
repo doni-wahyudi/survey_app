@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Plus, Trash2, ChevronUp, ChevronDown, Loader, Check, GitBranch } from 'lucide-react';
+import { X, Save, Plus, Trash2, ChevronUp, ChevronDown, Loader, Check, GitBranch, Users, Search, MapPin, ChevronRight } from 'lucide-react';
 import { supabase, TABLES, createNotification } from '../../lib/supabase';
-import type { Questionnaire, Question, Profile, BranchCondition } from '../../types';
+import type { Questionnaire, Question, Profile, BranchCondition, RespondentSample } from '../../types';
 import { useApp } from '../../store/useApp';
+import { useAuth } from '../../store/useAuth';
 
 interface Props {
     questionnaire: Questionnaire | null;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function QuestionnaireBuilderModal({ questionnaire, onClose, onSave }: Props) {
+    const { user } = useAuth();
     const { addToast } = useApp();
     const [activeTab, setActiveTab] = useState<'builder' | 'assignment'>('builder');
     const [submitting, setSubmitting] = useState(false);
@@ -22,32 +24,42 @@ export default function QuestionnaireBuilderModal({ questionnaire, onClose, onSa
     
     // Assignment State
     const [assignedSurveyors, setAssignedSurveyors] = useState<string[]>(questionnaire?.assigned_surveyors || []);
+    const [respondentAssignments, setRespondentAssignments] = useState<Record<string, string[]>>(questionnaire?.respondent_assignments || {});
     const [surveyors, setSurveyors] = useState<Profile[]>([]);
+    const [respondents, setRespondents] = useState<RespondentSample[]>([]);
     const [loadingSurveyors, setLoadingSurveyors] = useState(false);
     
+    // UI state for respondent selection
+    const [selectingRespondentsFor, setSelectingRespondentsFor] = useState<string | null>(null);
+    const [respondentSearch, setRespondentSearch] = useState('');
+
     // Filters
     const [filterKabupaten, setFilterKabupaten] = useState('');
     const [filterKecamatan, setFilterKecamatan] = useState('');
 
     useEffect(() => {
         if (activeTab === 'assignment' && surveyors.length === 0) {
-            fetchSurveyors();
+            fetchData();
         }
     }, [activeTab]);
 
-    const fetchSurveyors = async () => {
+    const fetchData = async () => {
         if (!supabase) return;
         setLoadingSurveyors(true);
         try {
-            const { data, error } = await supabase
-                .from(TABLES.profiles)
-                .select('*')
-                .eq('role', 'surveyor');
-            if (error) throw error;
-            setSurveyors((data || []) as Profile[]);
+            const [surRes, respRes] = await Promise.all([
+                supabase.from(TABLES.profiles).select('*').eq('role', 'surveyor'),
+                supabase.from(TABLES.respondentSamples).select('*').order('nama')
+            ]);
+            
+            if (surRes.error) throw surRes.error;
+            if (respRes.error) throw respRes.error;
+            
+            setSurveyors((surRes.data || []) as Profile[]);
+            setRespondents((respRes.data || []) as RespondentSample[]);
         } catch (error) {
-            console.error('Error fetching surveyors:', error);
-            addToast('Gagal memuat daftar surveyor', 'error');
+            console.error('Error fetching data:', error);
+            addToast('Gagal memuat data penugasan', 'error');
         } finally {
             setLoadingSurveyors(false);
         }
@@ -164,9 +176,25 @@ export default function QuestionnaireBuilderModal({ questionnaire, onClose, onSa
     const toggleSurveyor = (id: string) => {
         if (assignedSurveyors.includes(id)) {
             setAssignedSurveyors(assignedSurveyors.filter(sId => sId !== id));
+            // Also clear their respondent assignments
+            const newAssignments = { ...respondentAssignments };
+            delete newAssignments[id];
+            setRespondentAssignments(newAssignments);
         } else {
             setAssignedSurveyors([...assignedSurveyors, id]);
         }
+    };
+
+    const toggleRespondentForSurveyor = (surveyorId: string, respondentId: string) => {
+        const current = respondentAssignments[surveyorId] || [];
+        const next = current.includes(respondentId)
+            ? current.filter(id => id !== respondentId)
+            : [...current, respondentId];
+        
+        setRespondentAssignments({
+            ...respondentAssignments,
+            [surveyorId]: next
+        });
     };
 
     const allFilteredSelected = filteredSurveyors.length > 0 && filteredSurveyors.every(s => assignedSurveyors.includes(s.id));
@@ -189,6 +217,7 @@ export default function QuestionnaireBuilderModal({ questionnaire, onClose, onSa
                 description,
                 questions,
                 assigned_surveyors: assignedSurveyors,
+                respondent_assignments: respondentAssignments,
                 is_active: questionnaire ? questionnaire.is_active : true,
             };
 
@@ -200,7 +229,7 @@ export default function QuestionnaireBuilderModal({ questionnaire, onClose, onSa
             } else {
                 const res = await supabase.from(TABLES.questionnaires).insert({
                     ...payload,
-                    created_by: (await supabase.auth.getUser()).data.user?.id
+                    created_by: user?.id
                 }).select().single();
                 if (res.error) throw res.error;
                 data = res.data;
@@ -456,7 +485,7 @@ export default function QuestionnaireBuilderModal({ questionnaire, onClose, onSa
                                 </select>
                             </div>
 
-                            <div className="table-container" style={{ flex: 1, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                            <div className="table-container" style={{ flex: 1, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden', position: 'relative' }}>
                                 <table className="data-table">
                                     <thead>
                                         <tr>
@@ -468,9 +497,9 @@ export default function QuestionnaireBuilderModal({ questionnaire, onClose, onSa
                                                     disabled={filteredSurveyors.length === 0}
                                                 />
                                             </th>
-                                            <th>Nama Surveyor</th>
-                                            <th>Wilayah Tugas</th>
-                                            <th style={{ textAlign: 'center' }}>Status</th>
+                                            <th>Surveyor</th>
+                                            <th>Target Responden</th>
+                                            <th style={{ textAlign: 'center' }}>Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -480,26 +509,142 @@ export default function QuestionnaireBuilderModal({ questionnaire, onClose, onSa
                                             <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-lg)' }}>Tidak ada surveyor yang cocok dengan filter</td></tr>
                                         ) : (
                                             filteredSurveyors.map(s => (
-                                                <tr key={s.id} onClick={() => toggleSurveyor(s.id)} style={{ cursor: 'pointer' }}>
-                                                    <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                                <tr key={s.id}>
+                                                    <td style={{ textAlign: 'center' }}>
                                                         <input type="checkbox" checked={assignedSurveyors.includes(s.id)} onChange={() => toggleSurveyor(s.id)} />
                                                     </td>
-                                                    <td style={{ fontWeight: 500 }}>{s.full_name}</td>
-                                                    <td style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-                                                        {[s.kelurahan_desa, s.kecamatan, s.kabupaten].filter(Boolean).join(', ')}
+                                                    <td style={{ fontWeight: 500 }}>
+                                                        <div>{s.full_name}</div>
+                                                        <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>{s.email}</div>
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                            {(respondentAssignments[s.id] || []).length > 0 ? (
+                                                                <span className="badge badge-info" style={{ fontSize: '10px' }}>
+                                                                    {(respondentAssignments[s.id] || []).length} Responden
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>Belum ada target</span>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td style={{ textAlign: 'center' }}>
-                                                        {assignedSurveyors.includes(s.id) ? (
-                                                            <span className="badge badge-success"><Check size={12} style={{ marginRight: 4 }} /> Ditugaskan</span>
-                                                        ) : (
-                                                            <span className="badge" style={{ background: 'var(--color-background-alt)' }}>Belum</span>
-                                                        )}
+                                                        <button 
+                                                            className="btn btn-ghost btn-sm" 
+                                                            disabled={!assignedSurveyors.includes(s.id)}
+                                                            onClick={() => setSelectingRespondentsFor(s.id)}
+                                                        >
+                                                            Pilih Responden <ChevronRight size={14} />
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             ))
                                         )}
                                     </tbody>
                                 </table>
+
+                                {/* Respondent Selection Pop-up Modal */}
+                                {selectingRespondentsFor && (
+                                    <div style={{
+                                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                                        background: 'rgba(0,0,0,0.6)', zIndex: 9999,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        padding: 'var(--space-md)'
+                                    }}>
+                                        <div className="animate-scale-in" style={{
+                                            background: 'var(--color-surface)',
+                                            width: '100%', maxWidth: 500, height: '80vh',
+                                            display: 'flex', flexDirection: 'column',
+                                            borderRadius: 'var(--radius-lg)',
+                                            boxShadow: 'var(--shadow-lg)',
+                                            border: '1px solid var(--color-border)',
+                                            overflow: 'hidden'
+                                        }}>
+                                            <div style={{ padding: 'var(--space-md)', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--color-background-alt)' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                    <div style={{ background: 'var(--color-primary-light)', padding: 8, borderRadius: '50%', color: 'var(--color-primary)' }}>
+                                                        <Users size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 800, fontSize: 'var(--font-size-md)', color: 'var(--color-text-primary)' }}>Pilih Responden</div>
+                                                        <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Petugas: {surveyors.find(s => s.id === selectingRespondentsFor)?.full_name}</div>
+                                                    </div>
+                                                </div>
+                                                <button className="btn-icon btn-ghost" onClick={() => setSelectingRespondentsFor(null)}>
+                                                    <X size={20} style={{ color: 'var(--color-text-primary)' }} />
+                                                </button>
+                                            </div>
+                                            
+                                            <div style={{ padding: 'var(--space-md)', borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
+                                                <div className="search-bar" style={{ marginBottom: 0, border: '1px solid var(--color-border)' }}>
+                                                    <Search size={16} className="search-icon" style={{ color: 'var(--color-text-tertiary)' }} />
+                                                    <input 
+                                                        placeholder="Cari nama atau wilayah..." 
+                                                        value={respondentSearch} 
+                                                        onChange={e => setRespondentSearch(e.target.value)} 
+                                                        style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-sm)', background: 'var(--color-background-alt)' }}>
+                                                {respondents
+                                                    .filter(r => !respondentSearch || 
+                                                        r.nama.toLowerCase().includes(respondentSearch.toLowerCase()) || 
+                                                        (r.desa && r.desa.toLowerCase().includes(respondentSearch.toLowerCase())) ||
+                                                        (r.kecamatan && r.kecamatan.toLowerCase().includes(respondentSearch.toLowerCase()))
+                                                    )
+                                                    .map(r => {
+                                                        const isSelected = (respondentAssignments[selectingRespondentsFor] || []).includes(r.id);
+                                                        return (
+                                                            <div key={r.id} 
+                                                                style={{ 
+                                                                    padding: 'var(--space-md)', 
+                                                                    marginBottom: 8, 
+                                                                    display: 'flex', 
+                                                                    alignItems: 'center', 
+                                                                    gap: 'var(--space-md)',
+                                                                    cursor: 'pointer',
+                                                                    borderRadius: 'var(--radius-md)',
+                                                                    background: isSelected ? 'var(--color-primary-light)' : 'var(--color-surface)',
+                                                                    border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                                                                    boxShadow: 'var(--shadow-sm)',
+                                                                    transition: 'all 0.2s ease'
+                                                                }}
+                                                                onClick={() => toggleRespondentForSurveyor(selectingRespondentsFor, r.id)}
+                                                            >
+                                                                <div style={{ 
+                                                                    width: 22, height: 22, 
+                                                                    borderRadius: 6, 
+                                                                    border: isSelected ? 'none' : '2px solid var(--color-border)', 
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                    background: isSelected ? 'var(--color-primary)' : 'white'
+                                                                }}>
+                                                                    {isSelected && <Check size={14} style={{ color: 'white' }} />}
+                                                                </div>
+                                                                <div style={{ flex: 1 }}>
+                                                                    <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>{r.nama || 'Tanpa Nama'}</div>
+                                                                    <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                                                                        <MapPin size={10} /> {r.desa || '-'}, {r.kecamatan || '-'}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                            </div>
+
+                                            <div style={{ padding: 'var(--space-md)', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-surface)' }}>
+                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                                                    {(respondentAssignments[selectingRespondentsFor] || []).length} Responden dipilih
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 8 }}>
+                                                    <button className="btn btn-secondary btn-sm" onClick={() => setSelectingRespondentsFor(null)}>Batal</button>
+                                                    <button className="btn btn-primary btn-sm" onClick={() => setSelectingRespondentsFor(null)}>Terapkan</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

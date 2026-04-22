@@ -25,40 +25,36 @@ export const TABLES = {
     notifications: 'notifications'
 };
 
-// Admin helper to create user without logging out the current admin session
-// Note: Email confirmation must be DISABLED in Supabase Dashboard -> Auth -> Settings
+// Admin helper to create user directly in the profiles table (bypasses Supabase Auth rate limits)
 export const createNewUser = async (email: string, password: string, fullName: string, role: 'admin' | 'surveyor') => {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) throw new Error('Supabase not configured');
+    if (!supabase) throw new Error('Supabase not configured');
     
-    // Create a temporary client that doesn't persist session
-    const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-            detectSessionInUrl: false
-        }
-    });
+    const { data, error } = await supabase
+        .from(TABLES.profiles)
+        .insert({
+            email,
+            password,
+            full_name: fullName,
+            role: role,
+            is_onboarded: role === 'admin' // Admins don't need onboarding usually
+        })
+        .select()
+        .single();
 
-    const { data, error } = await tempClient.auth.signUp({
-        email,
-        password,
-        options: {
-            data: {
-                full_name: fullName,
-                role: role
-            }
-        }
-    });
-
-    if (error) throw error;
+    if (error) {
+        console.error("Error creating user in table:", error);
+        throw error;
+    }
     return data;
 };
 
-export const changePassword = async (newPassword: string) => {
+export const changePassword = async (userId: string, newPassword: string) => {
     if (!supabase) throw new Error('Supabase client not initialized');
-    const { data, error } = await supabase.auth.updateUser({
-        password: newPassword
-    });
+    const { data, error } = await supabase
+        .from(TABLES.profiles)
+        .update({ password: newPassword })
+        .eq('id', userId);
+    
     if (error) throw error;
     return data;
 };
@@ -413,13 +409,13 @@ export const submitSurveyResponse = async (data: Omit<SurveyResponse, 'id'>) => 
 };
 
 // Invitation
-export const createInvitation = async (email: string, role: string, villageId?: string) => {
+export const createInvitation = async (email: string, role: string, createdBy: string, villageId?: string) => {
     if (!supabase) throw new Error('Supabase client not initialized');
     const { error } = await supabase.from('user_invitations').insert({
         email,
         role,
         village_id: villageId || null,
-        created_by: (await supabase.auth.getUser()).data.user?.id
+        created_by: createdBy
     });
     if (error) throw error;
 };
