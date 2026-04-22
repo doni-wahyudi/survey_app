@@ -68,3 +68,60 @@ export async function pickPhoto(): Promise<string | null> {
         });
     }
 }
+export async function addWatermarkToImage(
+    dataUrl: string, 
+    metadata: {
+        coords?: string;
+        respondentNo?: string;
+        location?: string;
+        surveyor?: string;
+        timestamp?: string;
+    }
+): Promise<string> {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                resolve(dataUrl);
+                return;
+            }
+
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            // Draw original image
+            ctx.drawImage(img, 0, 0);
+
+            // Setup text style
+            const fontSize = Math.max(20, Math.floor(img.width / 40));
+            ctx.font = `${fontSize}px monospace`;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.shadowColor = 'black';
+            ctx.shadowBlur = 4;
+            
+            const padding = 20;
+            const lines = [];
+            if (metadata.timestamp) lines.push(`Waktu: ${metadata.timestamp}`);
+            if (metadata.coords) lines.push(`GPS: ${metadata.coords}`);
+            if (metadata.respondentNo) lines.push(`Responden: ${metadata.respondentNo}`);
+            if (metadata.location) lines.push(`Lokasi: ${metadata.location}`);
+            if (metadata.surveyor) lines.push(`Surveyor: ${metadata.surveyor}`);
+
+            // Draw semi-transparent background for readability
+            const rectHeight = (lines.length * (fontSize + 5)) + (padding * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(0, canvas.height - rectHeight, canvas.width, rectHeight);
+
+            // Draw text
+            ctx.fillStyle = 'white';
+            lines.reverse().forEach((line, i) => {
+                ctx.fillText(line, padding, canvas.height - padding - (i * (fontSize + 5)));
+            });
+
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.src = dataUrl;
+    });
+}

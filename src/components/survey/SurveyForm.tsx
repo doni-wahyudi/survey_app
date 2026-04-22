@@ -4,7 +4,7 @@ import { useAuth } from '../../store/useAuth';
 import { useActivityLog } from '../../store/useActivityLog';
 import { useOfflineSync } from '../../store/useOfflineSync';
 import { ArrowLeft, Send, Save, Check, MapPin, Camera, Navigation, Loader } from 'lucide-react';
-import { capturePhoto } from '../../utils/camera';
+import { capturePhoto, addWatermarkToImage } from '../../utils/camera';
 import { getCurrentLocation, formatCoordinate, formatAccuracy } from '../../utils/geolocation';
 import { submitSurveyResponse, uploadFile, supabase, TABLES } from '../../lib/supabase';
 import type { GeoLocation } from '../../utils/geolocation';
@@ -118,10 +118,33 @@ export default function SurveyForm({ respondentId, questionnaireId, onBack }: Pr
 
     const handlePhoto = async () => {
         const p = await capturePhoto();
-        if (p) {
-            setPhoto(p);
-            addToast('Foto berhasil diambil', 'success');
-            if (user) addLog(user.id, 'photo_captured', `Foto dokumentasi survei logic implemented`);
+        if (p && respondent) {
+            setSubmitting(true);
+            try {
+                // Get current location for watermark
+                const loc = await getCurrentLocation();
+                const coords = formatCoordinate(loc);
+                const timestamp = new Date().toLocaleString('id-ID');
+                
+                // Apply watermark
+                const watermarked = await addWatermarkToImage(p, {
+                    coords,
+                    timestamp,
+                    respondentNo: respondent.id.slice(0, 8),
+                    location: `${respondent.desa}, ${respondent.kecamatan}`,
+                    surveyor: user?.full_name || user?.email
+                });
+
+                setPhoto(watermarked);
+                addToast('Foto berhasil diambil dengan watermark', 'success');
+                if (user) addLog(user.id, 'photo_captured', `Foto dokumentasi survei dengan watermark`);
+            } catch (err) {
+                console.error('Error applying watermark:', err);
+                setPhoto(p); // Fallback to original
+                addToast('Foto diambil (watermark gagal)', 'warning');
+            } finally {
+                setSubmitting(false);
+            }
         }
     };
 
