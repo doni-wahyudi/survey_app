@@ -24,6 +24,7 @@ export default function SurveyList() {
     }, [user?.id]);
 
     const fetchData = async () => {
+        if (!supabase) return;
         if (!supabase || !user?.id) return;
         setLoading(true);
 

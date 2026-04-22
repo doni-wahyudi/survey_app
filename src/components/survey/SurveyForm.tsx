@@ -126,7 +126,7 @@ export default function SurveyForm({ respondentId, questionnaireId, onBack }: Pr
     };
 
     const handleSubmit = async () => {
-        if (!respondent || !questionnaire) return;
+        if (!respondent || !questionnaire || !supabase) return;
 
         // Validate required questions (only visible ones)
         const unanswered = questionnaire.questions.filter(q => {
