@@ -160,8 +160,8 @@ export default function SurveyForm({ respondentId, questionnaireId, onBack }: Pr
             const base64 = await capturePhoto();
             if (base64) {
                 const watermarked = await addWatermarkToImage(base64, {
-                    label: type.toUpperCase(),
-                    location: gpsLocation ? formatCoordinate(gpsLocation) : undefined
+                    location: type.toUpperCase(),
+                    coords: gpsLocation ? formatCoordinate(gpsLocation) : undefined
                 });
                 if (type === 'ktp') setKtpPhoto(watermarked);
                 else if (type === 'respondent') setRespPhoto(watermarked);
@@ -176,7 +176,7 @@ export default function SurveyForm({ respondentId, questionnaireId, onBack }: Pr
     const isVisible = (conditions?: BranchCondition[]) => {
         if (!conditions || conditions.length === 0) return true;
         return conditions.every(c => {
-            const val = answers[c.question_id];
+            const val = answers[c.questionId];
             if (Array.isArray(val)) return val.includes(c.value);
             return val === c.value;
         });
@@ -206,7 +206,7 @@ export default function SurveyForm({ respondentId, questionnaireId, onBack }: Pr
             let finalRespondentId = respondentId;
 
             if (respondentId === 'new') {
-                const { data: newResp, error: respError } = await supabase.from(TABLES.respondentSamples).insert({
+                const { data: newResp, error: respError } = await supabase!.from(TABLES.respondentSamples).insert({
                     ...newRespondent,
                     status: 'surveyed',
                     assigned_surveyor: user?.id,

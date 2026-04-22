@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../../store/useApp';
 import { useAuth } from '../../store/useAuth';
 import { useOfflineSync } from '../../store/useOfflineSync';
 import { useActivityLog } from '../../store/useActivityLog';
 import { capturePhoto } from '../../utils/camera';
 import { ArrowLeft, Send, Camera, Loader } from 'lucide-react';
-import { getKabupatenList, getKecamatanList, getDesaList } from '../../data/seedData';
+import { fetchProvinsi, fetchKabupaten, fetchKecamatan, fetchDesa, type Region } from '../../data/indonesiaData';
 import { submitCensus, uploadFile } from '../../lib/supabase';
 
 interface Props {
@@ -21,18 +21,58 @@ export default function CensusForm({ onBack }: Props) {
     const [submitting, setSubmitting] = useState(false);
     const [form, setForm] = useState({
         respondent_name: '', nik: '', tempat_lahir: '', tanggal_lahir: '',
-        jenis_kelamin: '', alamat: '', kabupaten: '', kecamatan: '', desa: '',
+        jenis_kelamin: '', alamat: '', provinsi: user?.provinsi || '', kabupaten: '', kecamatan: '', desa: '',
         rt_rw: '', agama: '', status_perkawinan: '', pendidikan_terakhir: '',
         pekerjaan: '', catatan: '', photo_url: '',
     });
 
-    const kabupatenList = getKabupatenList();
-    const kecamatanList = form.kabupaten ? getKecamatanList(form.kabupaten) : [];
-    const desaList = form.kabupaten && form.kecamatan ? getDesaList(form.kabupaten, form.kecamatan) : [];
+    // Region lists
+    const [provList, setProvList] = useState<Region[]>([]);
+    const [kabList, setKabList] = useState<Region[]>([]);
+    const [kecList, setKecList] = useState<Region[]>([]);
+    const [desaList, setDesaList] = useState<Region[]>([]);
+
+    useEffect(() => {
+        loadInitialRegions();
+    }, []);
+
+    const loadInitialRegions = async () => {
+        const provs = await fetchProvinsi();
+        setProvList(provs);
+    };
+
+    // Region Effects
+    useEffect(() => {
+        if (form.provinsi) {
+            const pId = provList.find(p => p.name === form.provinsi)?.id;
+            if (pId) fetchKabupaten(pId).then(setKabList);
+        } else {
+            setKabList([]);
+        }
+    }, [form.provinsi, provList]);
+
+    useEffect(() => {
+        if (form.kabupaten) {
+            const kId = kabList.find(k => k.name === form.kabupaten)?.id;
+            if (kId) fetchKecamatan(kId).then(setKecList);
+        } else {
+            setKecList([]);
+        }
+    }, [form.kabupaten, kabList]);
+
+    useEffect(() => {
+        if (form.kecamatan) {
+            const kId = kecList.find(k => k.name === form.kecamatan)?.id;
+            if (kId) fetchDesa(kId).then(setDesaList);
+        } else {
+            setDesaList([]);
+        }
+    }, [form.kecamatan, kecList]);
 
     const handleChange = (field: string, value: string) => {
         setForm(prev => {
-            const update: Record<string, string> = { [field]: value };
+            const update: any = { [field]: value };
+            if (field === 'provinsi') { update.kabupaten = ''; update.kecamatan = ''; update.desa = ''; }
             if (field === 'kabupaten') { update.kecamatan = ''; update.desa = ''; }
             if (field === 'kecamatan') { update.desa = ''; }
             return { ...prev, ...update };
@@ -57,19 +97,16 @@ export default function CensusForm({ onBack }: Props) {
         let finalPhotoUrl = form.photo_url;
 
         try {
-            // Upload photo if it's a local base64 string
             if (form.photo_url && form.photo_url.startsWith('data:')) {
                 const fileName = `census/${user?.id}/${Date.now()}.jpg`;
                 const uploadedUrl = await uploadFile('census-photos', fileName, form.photo_url);
-                if (uploadedUrl) {
-                    finalPhotoUrl = uploadedUrl;
-                }
+                if (uploadedUrl) finalPhotoUrl = uploadedUrl;
             }
 
             const censusData = {
                 ...form,
                 photo_url: finalPhotoUrl,
-                surveyor_id: user?.id,
+                surveyor_id: user?.id || '',
                 collected_at: new Date().toISOString(),
             };
 
@@ -88,7 +125,6 @@ export default function CensusForm({ onBack }: Props) {
         } catch (error) {
             console.error('Error saving census:', error);
             addToast('Gagal menyimpan data. Masuk ke antrean offline.', 'warning');
-            enqueue('census', { ...form, surveyor_id: user?.id, collected_at: new Date().toISOString() });
             onBack();
         } finally {
             setSubmitting(false);
@@ -98,20 +134,14 @@ export default function CensusForm({ onBack }: Props) {
     return (
         <div className="page-enter">
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
-                <button className="btn btn-icon btn-ghost" onClick={onBack}>
-                    <ArrowLeft size={20} />
-                </button>
+                <button className="btn btn-icon btn-ghost" onClick={onBack}><ArrowLeft size={20} /></button>
                 <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 700 }}>Input Data Sensus</h2>
             </div>
 
-            {/* Photo */}
             <div className="profile-photo-capture" onClick={handlePhoto} style={{ marginBottom: 'var(--space-lg)' }}>
-                {form.photo_url ? (
-                    <img src={form.photo_url} alt="Foto Warga" />
-                ) : (
+                {form.photo_url ? <img src={form.photo_url} alt="Foto Warga" /> : (
                     <div style={{ textAlign: 'center', color: 'var(--color-text-tertiary)' }}>
-                        <Camera size={24} />
-                        <div style={{ fontSize: 'var(--font-size-xs)', marginTop: 4 }}>Foto</div>
+                        <Camera size={24} /><div style={{ fontSize: 'var(--font-size-xs)', marginTop: 4 }}>Foto</div>
                     </div>
                 )}
             </div>
@@ -153,37 +183,33 @@ export default function CensusForm({ onBack }: Props) {
                 <textarea className="form-textarea" placeholder="Alamat lengkap" value={form.alamat} onChange={(e) => handleChange('alamat', e.target.value)} rows={2} />
             </div>
 
-            <div className="form-group">
-                <label className="form-label">RT/RW</label>
-                <input className="form-input" placeholder="001/001" value={form.rt_rw} onChange={(e) => handleChange('rt_rw', e.target.value)} />
-            </div>
-
-            {/* Cascading Region */}
-            <div className="cascading-selects">
-                <div className="form-group">
-                    <label className="form-label">Kabupaten/Kota</label>
-                    <select className="form-select" value={form.kabupaten} onChange={(e) => handleChange('kabupaten', e.target.value)}>
-                        <option value="">Pilih Kabupaten</option>
-                        {kabupatenList.map(k => <option key={k} value={k}>{k}</option>)}
+            <div className="card" style={{ padding: '12px', background: 'var(--color-background-alt)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)' }}>
+                <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--color-primary)', marginBottom: 8 }}>WILAYAH TINGGAL</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <select className="form-select form-select-sm" value={form.provinsi} onChange={(e) => handleChange('provinsi', e.target.value)}>
+                        <option value="">Provinsi</option>
+                        {provList.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                    </select>
+                    <select className="form-select form-select-sm" value={form.kabupaten} onChange={(e) => handleChange('kabupaten', e.target.value)} disabled={!form.provinsi}>
+                        <option value="">Kabupaten</option>
+                        {kabList.map((k: Region) => <option key={k.id} value={k.name}>{k.name}</option>)}
+                    </select>
+                    <select className="form-select form-select-sm" value={form.kecamatan} onChange={(e) => handleChange('kecamatan', e.target.value)} disabled={!form.kabupaten}>
+                        <option value="">Kecamatan</option>
+                        {kecList.map((k: Region) => <option key={k.id} value={k.name}>{k.name}</option>)}
+                    </select>
+                    <select className="form-select form-select-sm" value={form.desa} onChange={(e) => handleChange('desa', e.target.value)} disabled={!form.kecamatan}>
+                        <option value="">Desa</option>
+                        {desaList.map((d: Region) => <option key={d.id} value={d.name}>{d.name}</option>)}
                     </select>
                 </div>
-                <div className="form-group">
-                    <label className="form-label">Kecamatan</label>
-                    <select className="form-select" value={form.kecamatan} onChange={(e) => handleChange('kecamatan', e.target.value)} disabled={!form.kabupaten}>
-                        <option value="">Pilih Kecamatan</option>
-                        {kecamatanList.map(k => <option key={k} value={k}>{k}</option>)}
-                    </select>
-                </div>
-                <div className="form-group">
-                    <label className="form-label">Desa/Kelurahan</label>
-                    <select className="form-select" value={form.desa} onChange={(e) => handleChange('desa', e.target.value)} disabled={!form.kecamatan}>
-                        <option value="">Pilih Desa</option>
-                        {desaList.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
+                <div className="form-group" style={{ marginTop: 8 }}>
+                    <label className="form-label" style={{ fontSize: '10px' }}>RT/RW</label>
+                    <input className="form-input form-input-sm" placeholder="001/001" value={form.rt_rw} onChange={(e) => handleChange('rt_rw', e.target.value)} />
                 </div>
             </div>
 
-            <div className="form-row" style={{ marginTop: 'var(--space-md)' }}>
+            <div className="form-row">
                 <div className="form-group">
                     <label className="form-label">Agama</label>
                     <select className="form-select" value={form.agama} onChange={(e) => handleChange('agama', e.target.value)}>
@@ -219,7 +245,7 @@ export default function CensusForm({ onBack }: Props) {
                 <textarea className="form-textarea" placeholder="Catatan tambahan..." value={form.catatan} onChange={(e) => handleChange('catatan', e.target.value)} rows={2} />
             </div>
 
-            <button className="btn btn-primary btn-lg btn-block" onClick={handleSubmit} disabled={submitting} style={{ marginTop: 'var(--space-md)', marginBottom: 'var(--space-xl)' }}>
+            <button className="btn btn-primary btn-lg btn-block" onClick={handleSubmit} disabled={submitting} style={{ marginBottom: 'var(--space-xl)' }}>
                 {submitting ? <Loader size={18} className="spin-animation" /> : <Send size={16} />}
                 {submitting ? ' Menyimpan...' : ' Simpan Data'}
             </button>

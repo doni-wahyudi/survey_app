@@ -7,7 +7,7 @@ export type AspirationPriority = 'rendah' | 'sedang' | 'tinggi';
 export type AspirationCategory = 'infrastruktur' | 'pendidikan' | 'kesehatan' | 'ekonomi' | 'sosial' | 'lainnya';
 export type MediaSource = 'online' | 'print' | 'tv' | 'radio' | 'social_media';
 export type Sentiment = 'positive' | 'negative' | 'neutral';
-export type QuestionType = 'text' | 'number' | 'select' | 'radio' | 'checkbox' | 'textarea' | 'date' | 'matrix';
+export type QuestionType = 'text' | 'number' | 'select' | 'radio' | 'checkbox' | 'textarea' | 'date' | 'matrix' | 'multi_select';
 
 export interface BranchCondition {
     questionId: string;       // ID of the source question
@@ -27,6 +27,7 @@ export interface Profile {
     alamat: string;
     rt_rw: string;
     kelurahan_desa: string;
+    desa: string;             // Made required
     kecamatan: string;
     kabupaten: string;
     provinsi: string;
@@ -55,18 +56,25 @@ export interface RegionData {
 
 export interface RespondentSample {
     id: string;
+    custom_id: string;        // Made required
     nama: string;
     nik: string;
+    no_kk: string;           // Made required
+    gender: string;          // Made required
+    role_in_kk: string;      // Made required
     alamat: string;
     kabupaten: string;
+    provinsi: string;         // Made required
     kecamatan: string;
     desa: string;
     rt_rw: string;
     jenis_kelamin: string;
     usia: number;
     pekerjaan: string;
+    phone?: string;           // Added
     no_telp: string;
     status: SurveyStatus;
+    status_perkawinan?: string; // Added
     assigned_surveyor: string | null;
     created_at: string;
     created_by: string;
