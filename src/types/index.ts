@@ -123,7 +123,10 @@ export interface MediaMonitoring {
     media_name: string;
     url: string;
     content: string;
+    summary?: string;
     sentiment: Sentiment;
+    priority: 'low' | 'medium' | 'high' | 'crisis';
+    impact_score: 'local' | 'regional' | 'national';
     category: string;
     photo_url: string;
     reported_by: string;
@@ -188,7 +191,7 @@ export interface InsuranceData {
 }
 
 export type SurveyorTab = 'home' | 'survey' | 'media' | 'sensus' | 'aspirasi';
-export type AdminTab = 'dashboard' | 'respondent' | 'results' | 'aspirasi' | 'users' | 'settings';
+export type AdminTab = 'dashboard' | 'respondent' | 'results' | 'media' | 'aspirasi' | 'users' | 'settings';
 
 export interface AppNotification {
     id: string;

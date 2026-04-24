@@ -35,7 +35,8 @@ export default function MediaMonitoringForm({ onBack }: Props) {
     const [submitting, setSubmitting] = useState(false);
     const [form, setForm] = useState({
         title: '', source: '' as MediaSource, media_name: '',
-        url: '', content: '', sentiment: '' as Sentiment, category: '', photo_url: ''
+        url: '', content: '', sentiment: '' as Sentiment, category: '', photo_url: '',
+        priority: 'medium', impact_score: 'local'
     });
 
     const handleChange = (field: string, value: string) => {
@@ -140,6 +141,49 @@ export default function MediaMonitoringForm({ onBack }: Props) {
                         >
                             <span>{s.label}</span>
                         </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="form-group">
+                <label className="form-label">Prioritas Isu <span className="required">*</span></label>
+                <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                    {[
+                        { value: 'low', label: 'Rendah' },
+                        { value: 'medium', label: 'Sedang' },
+                        { value: 'high', label: 'Tinggi' },
+                        { value: 'crisis', label: 'Kritis' },
+                    ].map(p => (
+                        <button 
+                            key={p.value} 
+                            type="button"
+                            className={`filter-pill ${form.priority === p.value ? 'active' : ''}`}
+                            onClick={() => handleChange('priority', p.value)}
+                            style={{ flex: 1 }}
+                        >
+                            {p.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="form-group">
+                <label className="form-label">Skala Dampak <span className="required">*</span></label>
+                <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                    {[
+                        { value: 'local', label: 'Lokal' },
+                        { value: 'regional', label: 'Regional' },
+                        { value: 'national', label: 'Nasional' },
+                    ].map(i => (
+                        <button 
+                            key={i.value} 
+                            type="button"
+                            className={`filter-pill ${form.impact_score === i.value ? 'active' : ''}`}
+                            onClick={() => handleChange('impact_score', i.value)}
+                            style={{ flex: 1 }}
+                        >
+                            {i.label}
+                        </button>
                     ))}
                 </div>
             </div>

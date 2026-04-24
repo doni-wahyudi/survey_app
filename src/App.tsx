@@ -264,6 +264,7 @@ function App() {
                 case 'dashboard': return <DashboardAdmin />;
                 case 'respondent': return <RespondentManager />;
                 case 'results': return <SurveyResults />;
+                case 'media': return <MediaMonitoringList />;
                 case 'aspirasi': return <AspirationList />;
                 case 'users': return <UserManager />;
                 case 'settings': return <QuestionnaireManager />;
@@ -308,6 +309,7 @@ function App() {
             { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
             { key: 'respondent', label: 'Responden', icon: Users },
             { key: 'results', label: 'Hasil', icon: FileText },
+            { key: 'media', label: 'Media', icon: Newspaper },
             { key: 'aspirasi', label: 'Aspirasi', icon: MessageSquare },
             { key: 'users', label: 'Pengguna', icon: UserCog },
             { key: 'settings', label: 'Kuesioner', icon: ClipboardList },

@@ -83,11 +83,15 @@ CREATE TABLE IF NOT EXISTS public.survey_responses (
 CREATE TABLE IF NOT EXISTS public.media_monitoring (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
-  source TEXT,
+  source TEXT, -- online, print, tv, radio, social_media
+  media_name TEXT,
   url TEXT,
-  sentiment TEXT, -- positive, negative, neutral
-  category TEXT,
+  content TEXT,
   summary TEXT,
+  sentiment TEXT, -- positive, negative, neutral
+  priority TEXT DEFAULT 'medium', -- low, medium, high, crisis
+  impact_score TEXT DEFAULT 'local', -- local, regional, national
+  category TEXT,
   reported_by UUID REFERENCES public.profiles(id),
   reported_at TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()

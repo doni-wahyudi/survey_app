@@ -5,10 +5,12 @@ import { Plus, Search, Newspaper, Tv, Radio, Globe, MessageCircle, Loader, Downl
 import { supabase, TABLES } from '../../lib/supabase';
 import type { MediaMonitoring } from '../../types';
 import MediaMonitoringForm from './MediaMonitoringForm';
+import MediaDashboard from './MediaDashboard';
+import KeywordManager from './KeywordManager';
 import { exportMediaMonitoring } from '../../utils/export';
 
 // Fix lucide-react import
-import { Globe as GlobeIcon, Newspaper as NewspaperIcon, Tv as TvIcon, Radio as RadioIcon, MessageCircle as MessageCircleIcon } from 'lucide-react';
+import { Globe as GlobeIcon, Newspaper as NewspaperIcon, Tv as TvIcon, Radio as RadioIcon, MessageCircle as MessageCircleIcon, AlertCircle, ArrowLeft } from 'lucide-react';
 
 const SOURCE_ICONS: Record<string, any> = {
     online: GlobeIcon, print: NewspaperIcon, tv: TvIcon, radio: RadioIcon, social_media: MessageCircleIcon,
@@ -18,12 +20,19 @@ const SOURCE_LABELS: Record<string, string> = {
     online: 'Online', print: 'Cetak', tv: 'TV', radio: 'Radio', social_media: 'Sosmed',
 };
 
+const PRIORITY_COLORS: Record<string, string> = {
+    low: 'var(--color-info)',
+    medium: 'var(--color-warning)',
+    high: 'var(--color-error)',
+    crisis: '#000000', // Black for crisis
+};
+
 export default function MediaMonitoringList() {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
     const [loading, setLoading] = useState(true);
     const [mediaItems, setMediaItems] = useState<MediaMonitoring[]>([]);
-    const [showForm, setShowForm] = useState(false);
+    const [view, setView] = useState<'dashboard' | 'list' | 'form' | 'keywords'>('dashboard');
     const [search, setSearch] = useState('');
     const [sentimentFilter, setSentimentFilter] = useState('all');
 
@@ -42,7 +51,8 @@ export default function MediaMonitoringList() {
                 .select('*');
             
             if (!isAdmin) {
-                query = query.eq('reported_by', user.id);
+                // Show items reported by user OR automated items
+                query = query.or(`reported_by.eq.${user.id},category.eq.Automated`);
             }
 
             const { data, error } = await query.order('reported_at', { ascending: false });
@@ -58,7 +68,10 @@ export default function MediaMonitoringList() {
 
     const filtered = useMemo(() => {
         return mediaItems.filter(m => {
-            const matchSearch = !search || m.title.toLowerCase().includes(search.toLowerCase()) || m.content.toLowerCase().includes(search.toLowerCase());
+            const matchSearch = !search || 
+                               m.title?.toLowerCase().includes(search.toLowerCase()) || 
+                               m.content?.toLowerCase().includes(search.toLowerCase()) ||
+                               m.media_name?.toLowerCase().includes(search.toLowerCase());
             const matchSentiment = sentimentFilter === 'all' || m.sentiment === sentimentFilter;
             return matchSearch && matchSentiment;
         });
@@ -68,10 +81,24 @@ export default function MediaMonitoringList() {
         exportMediaMonitoring(filtered);
     };
 
-    if (showForm) return <MediaMonitoringForm onBack={() => {
-        setShowForm(false);
+    if (view === 'form') return <MediaMonitoringForm onBack={() => {
+        setView(isAdmin ? 'dashboard' : 'list');
         fetchMedia();
     }} />;
+
+    if (view === 'dashboard') {
+        return <MediaDashboard 
+            onAdd={() => setView('form')} 
+            onViewList={() => setView('list')} 
+            onManageKeywords={() => setView('keywords')}
+            isAdmin={isAdmin}
+            userId={user?.id || ''}
+        />;
+    }
+
+    if (view === 'keywords' && isAdmin) {
+        return <KeywordManager onBack={() => setView('dashboard')} />;
+    }
 
     if (loading) {
         return (
@@ -84,14 +111,21 @@ export default function MediaMonitoringList() {
     return (
         <div className="page-enter">
             <div className="section-header">
-                <h2 className="section-title">Media Monitoring</h2>
+                <h2 className="section-title">
+                    {view === 'list' && isAdmin && (
+                        <button className="btn btn-icon btn-ghost btn-sm" onClick={() => setView('dashboard')} style={{ marginRight: 8 }}>
+                            <ArrowLeft size={18} />
+                        </button>
+                    )}
+                    Media Monitoring
+                </h2>
                 <div style={{ display: 'flex', gap: 8 }}>
                     {isAdmin && (
                         <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={filtered.length === 0}>
                             <Download size={14} /> Export
                         </button>
                     )}
-                    <button className="btn btn-primary btn-sm" onClick={() => setShowForm(true)}>
+                    <button className="btn btn-primary btn-sm" onClick={() => setView('form')}>
                         <Plus size={14} /> Tambah
                     </button>
                 </div>
@@ -125,11 +159,11 @@ export default function MediaMonitoringList() {
                 filtered.map(m => {
                     const SourceIcon = SOURCE_ICONS[m.source] || GlobeIcon;
                     return (
-                        <div key={m.id} className="card" style={{ marginBottom: 'var(--space-sm)', padding: 'var(--space-md)' }}>
+                        <div key={m.id} className="card" style={{ marginBottom: 'var(--space-sm)', padding: 'var(--space-md)', borderLeft: m.priority === 'crisis' ? '4px solid #000' : undefined }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
                                 <div style={{
                                     width: 36, height: 36, borderRadius: 'var(--radius-sm)',
-                                    background: 'var(--color-primary-light)', display: 'flex',
+                                    background: 'var(--color-surface-hover)', display: 'flex',
                                     alignItems: 'center', justifyContent: 'center',
                                     color: 'var(--color-primary-dark)', flexShrink: 0
                                 }}>
@@ -141,21 +175,38 @@ export default function MediaMonitoringList() {
                                         {SOURCE_LABELS[m.source]} • {m.media_name} • {formatTimeAgo(m.reported_at)}
                                     </div>
                                 </div>
-                                <span className="badge" style={{
-                                    background: m.sentiment === 'positive' ? 'var(--color-success-light)' :
-                                        m.sentiment === 'negative' ? 'var(--color-error-light)' : 'var(--color-info-light)',
-                                    color: getSentimentColor(m.sentiment),
-                                    flexShrink: 0
-                                }}>
-                                    {getSentimentLabel(m.sentiment)}
-                                </span>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                                    <span className="badge" style={{
+                                        background: m.sentiment === 'positive' ? 'var(--color-success-light)' :
+                                            m.sentiment === 'negative' ? 'var(--color-error-light)' : 'var(--color-info-light)',
+                                        color: getSentimentColor(m.sentiment),
+                                        flexShrink: 0
+                                    }}>
+                                        {getSentimentLabel(m.sentiment)}
+                                    </span>
+                                    {m.priority && m.priority !== 'medium' && (
+                                        <span className="badge" style={{ 
+                                            background: m.priority === 'crisis' ? '#000' : 'transparent',
+                                            color: m.priority === 'crisis' ? '#fff' : PRIORITY_COLORS[m.priority],
+                                            border: m.priority === 'crisis' ? 'none' : `1px solid ${PRIORITY_COLORS[m.priority]}`,
+                                            fontSize: '8px'
+                                        }}>
+                                            {m.priority.toUpperCase()}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                             <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-                                {truncate(m.content, 120)}
+                                {truncate(m.content || m.summary || '', 120)}
                             </p>
-                            {m.category && (
-                                <span className="badge badge-primary" style={{ marginTop: 8 }}>{m.category}</span>
-                            )}
+                            <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+                                {m.category && (
+                                    <span className="badge badge-primary">{m.category}</span>
+                                )}
+                                {m.impact_score && (
+                                    <span className="badge badge-info">{m.impact_score}</span>
+                                )}
+                            </div>
                         </div>
                     );
                 })

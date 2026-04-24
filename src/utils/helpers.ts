@@ -106,7 +106,37 @@ export function getPriorityLabel(priority: string): string {
     return map[priority] || priority;
 }
 
+export function getMediaPriorityColor(priority: string): string {
+    const map: Record<string, string> = {
+        low: 'var(--color-info)',
+        medium: 'var(--color-warning)',
+        high: 'var(--color-error)',
+        crisis: '#000000',
+    };
+    return map[priority] || 'var(--color-text-secondary)';
+}
+
+export function getMediaPriorityLabel(priority: string): string {
+    const map: Record<string, string> = {
+        low: 'Rendah',
+        medium: 'Sedang',
+        high: 'Tinggi',
+        crisis: 'KRISIS',
+    };
+    return map[priority] || priority;
+}
+
+export function getImpactLabel(score: string): string {
+    const map: Record<string, string> = {
+        local: 'Lokal',
+        regional: 'Regional',
+        national: 'Nasional',
+    };
+    return map[score] || score;
+}
+
 export function truncate(str: string, length: number = 100): string {
+    if (!str) return '';
     if (str.length <= length) return str;
     return str.substring(0, length) + '...';
 }
