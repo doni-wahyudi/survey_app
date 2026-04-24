@@ -103,10 +103,10 @@ export default function AspirationList() {
                     </div>
 
                     <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 800, marginBottom: 'var(--space-xs)', color: 'var(--color-text-primary)' }}>{a.judul}</h2>
-                    <div style={{ display: 'flex', items: 'center', gap: 'var(--space-xs)', marginBottom: 'var(--space-md)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', marginBottom: 'var(--space-md)' }}>
                         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)' }}>Dilaporkan {formatTimeAgo(a.created_at)}</span>
                         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)' }}>•</span>
-                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)', fontWeight: 600, color: 'var(--color-primary)' }}>{a.kategori.toUpperCase()}</span>
+                        <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--color-primary)' }}>{a.kategori.toUpperCase()}</span>
                     </div>
 
                     <div className="card" style={{ padding: 'var(--space-md)', background: 'var(--color-background-alt)', marginBottom: 'var(--space-md)' }}>

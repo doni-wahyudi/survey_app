@@ -252,7 +252,7 @@ export default function QuestionnaireBuilderModal({ questionnaire, onClose, onSa
 
             // Sync with respondent_samples table
             const assignmentPromises = Object.entries(respondentAssignments).map(([surveyorId, respondentIds]) => {
-                if (respondentIds.length === 0) return Promise.resolve();
+                if (respondentIds.length === 0 || !supabase) return Promise.resolve();
                 return supabase.from(TABLES.respondentSamples)
                     .update({ assigned_surveyor: surveyorId })
                     .in('id', respondentIds);
