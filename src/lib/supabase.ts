@@ -438,3 +438,26 @@ export const fetchRespondents = async (): Promise<RespondentSample[]> => {
     if (error) throw error;
     return data || [];
 };
+
+// Broadcast to all admins helper
+export const notifyAdmins = async (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error' | 'task' | 'alert' = 'info') => {
+    if (!supabase) return;
+    
+    // Get all admin IDs
+    const { data: admins } = await supabase
+        .from(TABLES.profiles)
+        .select('id')
+        .eq('role', 'admin');
+        
+    if (!admins || admins.length === 0) return;
+    
+    const notifications = admins.map(a => ({
+        user_id: a.id,
+        title,
+        message,
+        type,
+        is_read: false
+    }));
+    
+    return await supabase.from(TABLES.notifications).insert(notifications);
+};

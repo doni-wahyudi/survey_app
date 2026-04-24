@@ -38,17 +38,29 @@ export default function DashboardAdmin() {
                 { data: responses },
                 { data: media },
                 { data: aspirations },
-                { data: census }
+                { data: census },
+                { data: surveyors }
             ] = await Promise.all([
                 supabase.from(TABLES.respondentSamples).select('*'),
                 supabase.from(TABLES.surveyResponses).select('*'),
                 supabase.from(TABLES.mediaMonitoring).select('*'),
                 supabase.from(TABLES.aspirations).select('*'),
-                supabase.from(TABLES.censusData).select('*')
+                supabase.from(TABLES.censusData).select('*'),
+                supabase.from('profiles').select('id, full_name, assigned_region')
             ]);
 
+            // Merge surveyor data into respondents
+            const respondentsWithSurveyors = (respondents || []).map(r => {
+                const sid = r.surveyor_id || (typeof r.assigned_surveyor === 'string' ? r.assigned_surveyor : null);
+                return {
+                    ...r,
+                    surveyor_id: sid, // Ensure surveyor_id is set
+                    assigned_surveyor: (surveyors || []).find(s => s.id === sid)
+                };
+            });
+
             setData({
-                respondents: (respondents || []) as RespondentSample[],
+                respondents: respondentsWithSurveyors as RespondentSample[],
                 responses: (responses || []) as SurveyResponse[],
                 media: (media || []) as MediaMonitoring[],
                 aspirations: (aspirations || []) as Aspiration[],
@@ -102,12 +114,20 @@ export default function DashboardAdmin() {
 
     // Surveyor performance
     const surveyorPerformance = useMemo(() => {
-        const perf: Record<string, { total: number; done: number }> = {};
+        const perf: Record<string, { total: number; done: number; name: string; area: string }> = {};
         data.respondents.forEach(r => {
-            if (r.assigned_surveyor) {
-                if (!perf[r.assigned_surveyor]) perf[r.assigned_surveyor] = { total: 0, done: 0 };
-                perf[r.assigned_surveyor].total++;
-                if (r.status === 'surveyed') perf[r.assigned_surveyor].done++;
+            if (r.surveyor_id) {
+                const id = r.surveyor_id;
+                if (!perf[id]) {
+                    const profile = r.assigned_surveyor as any;
+                    const name = profile?.full_name || 'Surveyor Tanpa Nama';
+                    const area = profile?.assigned_region ? 
+                        `${profile.assigned_region.kabupaten}${profile.assigned_region.kecamatan ? ` - ${profile.assigned_region.kecamatan}` : ''}` : 
+                        'Wilayah Belum Diatur';
+                    perf[id] = { total: 0, done: 0, name, area };
+                }
+                perf[id].total++;
+                if (r.status === 'surveyed') perf[id].done++;
             }
         });
         return perf;
@@ -248,11 +268,19 @@ export default function DashboardAdmin() {
                         const rate = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
                         return (
                             <div key={id} style={{ marginBottom: 'var(--space-md)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-sm)' }}>
-                                    <span style={{ fontWeight: 600 }}>ID Surveyor: {id.slice(0, 8)}...</span>
-                                    <span style={{ color: 'var(--color-text-secondary)' }}>{p.done}/{p.total} ({rate}%)</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontWeight: 700, fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>{p.name}</span>
+                                        <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', fontWeight: 500 }}>
+                                            <MapPin size={10} style={{ display: 'inline', verticalAlign: -1, marginRight: 2 }} />
+                                            {p.area}
+                                        </span>
+                                    </div>
+                                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--color-primary-dark)' }}>
+                                        {p.done}/{p.total} ({rate}%)
+                                    </span>
                                 </div>
-                                <div className="progress-bar" style={{ marginTop: 4 }}>
+                                <div className="progress-bar" style={{ marginTop: 8, height: 6 }}>
                                     <div className="progress-bar-fill" style={{ width: `${rate}%` }} />
                                 </div>
                             </div>

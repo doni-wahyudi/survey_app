@@ -6,7 +6,7 @@ import { useActivityLog } from '../../store/useActivityLog';
 import { capturePhoto } from '../../utils/camera';
 import { ArrowLeft, Send, Camera, Loader } from 'lucide-react';
 import { fetchProvinsi, fetchKabupaten, fetchKecamatan, fetchDesa, type Region } from '../../data/indonesiaData';
-import { submitCensus, uploadFile } from '../../lib/supabase';
+import { submitCensus, uploadFile, notifyAdmins } from '../../lib/supabase';
 
 interface Props {
     onBack: () => void;
@@ -112,6 +112,11 @@ export default function CensusForm({ onBack }: Props) {
 
             if (isOnline) {
                 await submitCensus(censusData);
+                await notifyAdmins(
+                    'Data Sensus Baru 👥',
+                    `${user?.full_name || 'Surveyor'} telah menambahkan data sensus baru: ${form.respondent_name}`,
+                    'info'
+                );
                 addToast('Data sensus berhasil disimpan!', 'success');
             } else {
                 enqueue('census', censusData);

@@ -6,7 +6,7 @@ import { useOfflineSync } from '../../store/useOfflineSync';
 import { ArrowLeft, Send, Save, Check, MapPin, Camera, Navigation, Loader, User } from 'lucide-react';
 import { capturePhoto, addWatermarkToImage } from '../../utils/camera';
 import { getCurrentLocation, formatCoordinate, formatAccuracy } from '../../utils/geolocation';
-import { submitSurveyResponse, uploadFile, supabase, TABLES } from '../../lib/supabase';
+import { submitSurveyResponse, uploadFile, supabase, TABLES, notifyAdmins } from '../../lib/supabase';
 import { fetchProvinsi, fetchKabupaten, fetchKecamatan, fetchDesa, type Region } from '../../data/indonesiaData';
 import type { GeoLocation } from '../../utils/geolocation';
 import type { RespondentSample, Questionnaire, BranchCondition } from '../../types';
@@ -236,6 +236,12 @@ export default function SurveyForm({ respondentId, questionnaireId, onBack }: Pr
 
             if (isOnline && supabase) {
                 await submitSurveyResponse(surveyData);
+                
+                await notifyAdmins(
+                    'Survey Selesai ✅',
+                    `${user?.full_name || 'Surveyor'} telah menyelesaikan survey untuk responden ID: ${finalRespondentId}`,
+                    'success'
+                );
                 
                 const updatePayload: any = { 
                     status: 'surveyed',

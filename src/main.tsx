@@ -14,7 +14,11 @@ function Root() {
   return <App />;
 }
 
-createRoot(document.getElementById('root')!).render(
+const rootElement = document.getElementById('root')!;
+const root = (window as any)._reactRoot || createRoot(rootElement);
+(window as any)._reactRoot = root;
+
+root.render(
   <StrictMode>
     <Root />
   </StrictMode>,

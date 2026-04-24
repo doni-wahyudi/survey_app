@@ -1,16 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
 import { fetchProvinsi, fetchKabupaten, fetchKecamatan, fetchDesa, type Region } from '../../data/indonesiaData';
 import { getStatusLabel } from '../../utils/helpers';
-import { Search, MapPin, Edit2, UserPlus, Loader, Filter, Download, X, Save } from 'lucide-react';
+import { Search, MapPin, Edit2, UserPlus, Loader, Filter, Download, X, Save, User } from 'lucide-react';
 import { exportRespondents } from '../../utils/export';
 import { useApp } from '../../store/useApp';
-import { supabase, TABLES } from '../../lib/supabase';
-import type { RespondentSample } from '../../types';
+import { supabase, TABLES, createNotification, notifyAdmins } from '../../lib/supabase';
+import type { RespondentSample, Profile } from '../../types';
 
 export default function RespondentManager() {
     const { addToast } = useApp();
     const [loading, setLoading] = useState(true);
     const [respondents, setRespondents] = useState<RespondentSample[]>([]);
+    const [surveyors, setSurveyors] = useState<Profile[]>([]);
     const [search, setSearch] = useState('');
     
     // Region lists
@@ -35,7 +36,8 @@ export default function RespondentManager() {
     const [form, setForm] = useState({
         custom_id: '',
         nama: '', 
-        provinsi: '', kabupaten: '', kecamatan: '', desa: '', rt_rw: ''
+        provinsi: '', kabupaten: '', kecamatan: '', desa: '', rt_rw: '',
+        surveyor_id: ''
     });
 
     // Form Region lists
@@ -45,8 +47,15 @@ export default function RespondentManager() {
 
     useEffect(() => {
         fetchData();
+        fetchSurveyors();
         loadInitialRegions();
     }, []);
+
+    const fetchSurveyors = async () => {
+        if (!supabase) return;
+        const { data } = await supabase.from(TABLES.profiles).select('*').eq('role', 'surveyor').order('full_name');
+        setSurveyors(data || []);
+    };
 
     const loadInitialRegions = async () => {
         const provs = await fetchProvinsi();
@@ -59,7 +68,7 @@ export default function RespondentManager() {
         try {
             const { data, error } = await supabase
                 .from(TABLES.respondentSamples)
-                .select('*')
+                .select('*, assigned_surveyor:surveyor_id(full_name)')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -154,14 +163,16 @@ export default function RespondentManager() {
                 provinsi: r.provinsi || '',
                 kabupaten: r.kabupaten || '',
                 kecamatan: r.kecamatan || '', desa: r.desa || '', 
-                rt_rw: r.rt_rw || ''
+                rt_rw: r.rt_rw || '',
+                surveyor_id: r.surveyor_id || ''
             });
         } else {
             setEditingId(null);
             setForm({
                 custom_id: '',
                 nama: '', 
-                provinsi: '', kabupaten: '', kecamatan: '', desa: '', rt_rw: ''
+                provinsi: '', kabupaten: '', kecamatan: '', desa: '', rt_rw: '',
+                surveyor_id: ''
             });
         }
         setShowModal(true);
@@ -179,6 +190,10 @@ export default function RespondentManager() {
                 status: editingId ? undefined : 'pending'
             };
 
+            // Check if surveyor was just assigned
+            const oldRespondent = respondents.find(r => r.id === editingId);
+            const isNewAssignment = form.surveyor_id && (!oldRespondent || oldRespondent.surveyor_id !== form.surveyor_id);
+
             if (editingId) {
                 const { error } = await supabase.from(TABLES.respondentSamples).update(payload).eq('id', editingId);
                 if (error) throw error;
@@ -187,6 +202,16 @@ export default function RespondentManager() {
                 const { error } = await supabase.from(TABLES.respondentSamples).insert(payload);
                 if (error) throw error;
                 addToast('Responden berhasil ditambahkan', 'success');
+            }
+
+            // Trigger notification if assigned
+            if (isNewAssignment) {
+                await createNotification(
+                    form.surveyor_id,
+                    'Tugas Baru 📋',
+                    `Anda telah ditugaskan untuk mensurvey responden: ${form.nama}`,
+                    'task'
+                );
             }
 
             setShowModal(false);
@@ -281,8 +306,13 @@ export default function RespondentManager() {
                                         {r.status === 'pending' && !r.assigned_surveyor ? 'Belum Ditugaskan' : getStatusLabel(r.status)}
                                     </span>
                                 </div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)', marginTop: 4 }}>
-                                    <MapPin size={10} style={{ display: 'inline', verticalAlign: -1 }} /> {r.desa}, {r.kecamatan}, {r.kabupaten}, {r.provinsi}
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span><MapPin size={10} style={{ display: 'inline', verticalAlign: -1 }} /> {r.desa}, {r.kecamatan}, {r.kabupaten}, {r.provinsi}</span>
+                                    {r.assigned_surveyor && (
+                                        <span style={{ color: 'var(--color-primary-dark)', fontWeight: 600 }}>
+                                            <User size={10} style={{ display: 'inline', verticalAlign: -1 }} /> Petugas: {r.assigned_surveyor.full_name}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: 4 }}>
@@ -350,6 +380,21 @@ export default function RespondentManager() {
                                         {formDesaList.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
                                     </select>
                                 </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Petugas Surveyor (Opsional)</label>
+                                <select 
+                                    className="form-select" 
+                                    value={form.surveyor_id} 
+                                    onChange={(e) => setForm({ ...form, surveyor_id: e.target.value })}
+                                    disabled={submitting}
+                                >
+                                    <option value="">-- Pilih Surveyor --</option>
+                                    {surveyors.map(s => (
+                                        <option key={s.id} value={s.id}>{s.full_name}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div style={{ marginTop: 'var(--space-lg)' }}>

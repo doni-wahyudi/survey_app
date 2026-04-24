@@ -38,6 +38,7 @@ export interface Profile {
     profile_photo_url: string;
     is_onboarded: boolean;
     assigned_region: Region | null;
+    permissions?: string[];
     created_at: string;
 }
 
@@ -75,7 +76,8 @@ export interface RespondentSample {
     no_telp: string;
     status: SurveyStatus;
     status_perkawinan?: string; // Added
-    assigned_surveyor: string | null;
+    surveyor_id: string | null;
+    assigned_surveyor: any; // Can be string ID or { full_name: string } from join
     created_at: string;
     created_by: string;
 }
@@ -193,14 +195,14 @@ export interface InsuranceData {
 }
 
 export type SurveyorTab = 'home' | 'survey' | 'media' | 'sensus' | 'aspirasi';
-export type AdminTab = 'dashboard' | 'respondent' | 'results' | 'media' | 'sensus' | 'aspirasi' | 'users' | 'settings';
+export type AdminTab = 'dashboard' | 'respondent' | 'results' | 'media' | 'sensus' | 'aspirasi' | 'users' | 'pengumuman' | 'settings';
 
 export interface AppNotification {
     id: string;
     user_id: string;
     title: string;
     message: string;
-    type: 'info' | 'success' | 'warning' | 'error';
+    type: 'info' | 'success' | 'warning' | 'error' | 'task' | 'alert';
     is_read: boolean;
     created_at: string;
 }

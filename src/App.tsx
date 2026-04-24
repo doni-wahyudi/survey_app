@@ -20,11 +20,12 @@ import RespondentManager from './components/admin/RespondentManager';
 import UserManager from './components/admin/UserManager';
 import SurveyResults from './components/admin/SurveyResults';
 import QuestionnaireManager from './components/admin/QuestionnaireManager';
+import NotificationManager from './components/admin/NotificationManager';
 import NotificationList from './components/common/NotificationList';
 import {
     ClipboardList, Home, ClipboardCheck, Newspaper, Users, MessageSquare,
     BarChart3, UserCog, FileText, Settings, LogOut, User, ChevronRight,
-    Bell, MapPin, Activity, WifiOff, ArrowLeft, UserCheck
+    Bell, MapPin, Activity, WifiOff, ArrowLeft, UserCheck, Menu, X
 } from 'lucide-react';
 import { supabase, TABLES } from './lib/supabase';
 
@@ -45,23 +46,68 @@ function App() {
     const [showNotifications, setShowNotifications] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
 
-    // Fetch unread notifications
+    // Fetch unread notifications and setup Realtime
     useEffect(() => {
+        if (!user?.id || !supabase) return;
+
         const fetchCount = async () => {
-            if (!user?.id || !supabase) return;
-            const { count } = await supabase
-                .from(TABLES.notifications)
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', user.id)
-                .eq('is_read', false);
-            setUnreadCount(count || 0);
+            try {
+                const { count } = await supabase!
+                    .from('notifications')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .eq('is_read', false);
+                setUnreadCount(count || 0);
+            } catch (err) {
+                console.error('Error fetching notification count:', err);
+            }
         };
+
         fetchCount();
         
-        // Polling or Subscription would be better, but let's do a simple check for now
-        const interval = setInterval(fetchCount, 30000); // Every 30s
-        return () => clearInterval(interval);
+        // Supabase Realtime Subscription
+        // Use a unique channel name per user session to avoid collisions
+        const channel = supabase.channel(`user-notifs-${user.id}-${Math.random().toString(36).substring(7)}`);
+        
+        channel
+            .on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'notifications',
+                filter: `user_id=eq.${user.id}`
+            }, (payload) => {
+                console.log('New notification:', payload);
+                setUnreadCount(prev => prev + 1);
+                addToast('Notifikasi baru diterima', 'info');
+            })
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'notifications',
+                filter: `user_id=eq.${user.id}`
+            }, () => {
+                fetchCount();
+            })
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log('Successfully subscribed to notifications');
+                }
+            });
+
+        return () => {
+            supabase?.removeChannel(channel);
+        };
     }, [user?.id]);
+
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Initial Loading Simulation
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsLoading(false);
+        }, 2000);
+        return () => clearTimeout(timer);
+    }, []);
 
     // Not authenticated → Login
     if (!isAuthenticated || !user) {
@@ -70,6 +116,21 @@ function App() {
                 <Toast />
                 <LoginPage />
             </>
+        );
+    }
+
+    // Splash Screen
+    if (isLoading) {
+        return (
+            <div className="splash-screen">
+                <div className="splash-content">
+                    <img src="swaraya_logo.png" alt="Swaraya Logo" className="splash-logo" />
+                    <div className="splash-loader">
+                        <div className="loader-bar"></div>
+                    </div>
+                    <p>Swarasurvey - Menghubungkan Suara Masyarakat</p>
+                </div>
+            </div>
         );
     }
 
@@ -209,6 +270,15 @@ function App() {
 
     // ── Surveyor Home ──
     const SurveyorHome = () => {
+        const userPermissions = user?.permissions || ['home', 'survey', 'media', 'sensus', 'aspirasi'];
+
+        const features = [
+            { id: 'survey', name: 'Survey', count: 'Isi kuesioner', icon: ClipboardCheck, color: 'var(--color-primary-dark)', bg: 'rgba(196,149,106,0.15)' },
+            { id: 'media', name: 'Media', count: 'Monitoring media', icon: Newspaper, color: 'var(--color-info)', bg: 'var(--color-info-light)' },
+            { id: 'sensus', name: 'Sensus', count: 'Data penduduk', icon: Users, color: 'var(--color-success)', bg: 'var(--color-success-light)' },
+            { id: 'aspirasi', name: 'Aspirasi', count: 'Suara warga', icon: MessageSquare, color: 'var(--color-warning)', bg: 'var(--color-warning-light)' },
+        ].filter(f => userPermissions.includes(f.id));
+
         return (
             <div className="page-enter">
                 <div className="dashboard-greeting">
@@ -217,34 +287,15 @@ function App() {
                 </div>
 
                 <div className="feature-grid">
-                    <div className="feature-card" onClick={() => setSurveyorTab('survey')}>
-                        <div className="feature-icon" style={{ background: 'rgba(196,149,106,0.15)', color: 'var(--color-primary-dark)' }}>
-                            <ClipboardCheck size={26} />
+                    {features.map(f => (
+                        <div key={f.id} className="feature-card" onClick={() => setSurveyorTab(f.id as SurveyorTab)}>
+                            <div className="feature-icon" style={{ background: f.bg, color: f.color }}>
+                                <f.icon size={26} />
+                            </div>
+                            <span className="feature-name">{f.name}</span>
+                            <span className="feature-count">{f.count}</span>
                         </div>
-                        <span className="feature-name">Survey</span>
-                        <span className="feature-count">Isi kuesioner</span>
-                    </div>
-                    <div className="feature-card" onClick={() => setSurveyorTab('media')}>
-                        <div className="feature-icon" style={{ background: 'var(--color-info-light)', color: 'var(--color-info)' }}>
-                            <Newspaper size={26} />
-                        </div>
-                        <span className="feature-name">Media</span>
-                        <span className="feature-count">Monitoring media</span>
-                    </div>
-                    <div className="feature-card" onClick={() => setSurveyorTab('sensus')}>
-                        <div className="feature-icon" style={{ background: 'var(--color-success-light)', color: 'var(--color-success)' }}>
-                            <Users size={26} />
-                        </div>
-                        <span className="feature-name">Sensus</span>
-                        <span className="feature-count">Data penduduk</span>
-                    </div>
-                    <div className="feature-card" onClick={() => setSurveyorTab('aspirasi')}>
-                        <div className="feature-icon" style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)' }}>
-                            <MessageSquare size={26} />
-                        </div>
-                        <span className="feature-name">Aspirasi</span>
-                        <span className="feature-count">Suara warga</span>
-                    </div>
+                    ))}
                 </div>
 
                 {/* Inline Dashboard */}
@@ -267,6 +318,7 @@ function App() {
                 case 'media': return <MediaMonitoringList />;
                 case 'sensus': return <CensusList />;
                 case 'aspirasi': return <AspirationList />;
+                case 'pengumuman': return <NotificationManager />;
                 case 'users': return <UserManager />;
                 case 'settings': return <QuestionnaireManager />;
                 default: return <DashboardAdmin />;
@@ -283,48 +335,76 @@ function App() {
         }
     };
 
-    // ── Surveyor Bottom Nav ──
-    const SurveyorNav = () => {
-        const tabs: { key: SurveyorTab; label: string; icon: typeof Home }[] = [
-            { key: 'home', label: 'Beranda', icon: Home },
-            { key: 'survey', label: 'Survey', icon: ClipboardCheck },
-            { key: 'media', label: 'Media', icon: Newspaper },
-            { key: 'sensus', label: 'Sensus', icon: Users },
-            { key: 'aspirasi', label: 'Aspirasi', icon: MessageSquare },
-        ];
-        return (
-            <nav className="bottom-nav">
-                {tabs.map(t => (
-                    <button key={t.key} className={surveyorTab === t.key && !showNotifications ? 'active' : ''} onClick={() => { setSurveyorTab(t.key); setShowNotifications(false); }}>
-                        <t.icon size={20} />
-                        <span>{t.label}</span>
-                    </button>
-                ))}
-            </nav>
-        );
-    };
+    // ── Floating Menu (FAB) ──
+    const FloatingMenu = () => {
+        const [isOpen, setIsOpen] = useState(false);
+        const userPermissions = user?.permissions || ['home', 'survey', 'media', 'sensus', 'aspirasi'];
 
-    // ── Admin Bottom Nav ──
-    const AdminNav = () => {
-        const tabs: { key: AdminTab; label: string; icon: typeof Home }[] = [
+        const adminTabs: { key: AdminTab; label: string; icon: any }[] = [
             { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
             { key: 'respondent', label: 'Responden', icon: Users },
             { key: 'results', label: 'Hasil', icon: FileText },
             { key: 'media', label: 'Media', icon: Newspaper },
             { key: 'sensus', label: 'Sensus', icon: UserCheck },
             { key: 'aspirasi', label: 'Aspirasi', icon: MessageSquare },
+            { key: 'pengumuman', label: 'Siaran', icon: Bell },
             { key: 'users', label: 'Pengguna', icon: UserCog },
             { key: 'settings', label: 'Kuesioner', icon: ClipboardList },
         ];
+
+        const surveyorTabs: { key: SurveyorTab; label: string; icon: any }[] = [
+            { key: 'home' as SurveyorTab, label: 'Beranda', icon: Home },
+            { key: 'survey' as SurveyorTab, label: 'Survey', icon: ClipboardCheck },
+            { key: 'media' as SurveyorTab, label: 'Media', icon: Newspaper },
+            { key: 'sensus' as SurveyorTab, label: 'Sensus', icon: Users },
+            { key: 'aspirasi' as SurveyorTab, label: 'Aspirasi', icon: MessageSquare },
+        ].filter(t => t.key === 'home' || userPermissions.includes(t.key));
+
+        const tabs = isAdmin ? adminTabs : surveyorTabs;
+        const activeKey = isAdmin ? adminTab : surveyorTab;
+
         return (
-            <nav className="bottom-nav">
-                {tabs.map(t => (
-                    <button key={t.key} className={adminTab === t.key && !showNotifications ? 'active' : ''} onClick={() => { setAdminTab(t.key); setShowNotifications(false); }}>
-                        <t.icon size={20} />
-                        <span>{t.label}</span>
-                    </button>
-                ))}
-            </nav>
+            <>
+                {/* FAB Button */}
+                <button 
+                    className={`fab-button ${isOpen ? 'open' : ''}`} 
+                    onClick={() => setIsOpen(!isOpen)}
+                    aria-label="Toggle Menu"
+                >
+                    {isOpen ? <X size={24} /> : <Menu size={24} />}
+                </button>
+
+                {/* Expanded Menu Overlay */}
+                {isOpen && (
+                    <div className="fab-overlay" onClick={() => setIsOpen(false)}>
+                        <div className="fab-menu-grid" onClick={e => e.stopPropagation()}>
+                            <div className="menu-header">
+                                <h3>Menu Utama</h3>
+                                <p>Pilih fitur untuk diakses</p>
+                            </div>
+                            <div className="grid-container">
+                                {tabs.map(t => (
+                                    <div 
+                                        key={t.key} 
+                                        className={`grid-item ${activeKey === t.key ? 'active' : ''}`}
+                                        onClick={() => {
+                                            if (isAdmin) setAdminTab(t.key as AdminTab);
+                                            else setSurveyorTab(t.key as SurveyorTab);
+                                            setIsOpen(false);
+                                            setShowNotifications(false);
+                                        }}
+                                    >
+                                        <div className="grid-icon">
+                                            <t.icon size={24} />
+                                        </div>
+                                        <span>{t.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </>
         );
     };
 
@@ -336,32 +416,33 @@ function App() {
             <header className="app-header">
                 <div className="header-brand" onClick={() => { setSurveyorTab('home'); setAdminTab('dashboard'); setShowNotifications(false); }}>
                     <div className="brand-icon">
-                        <ClipboardList size={18} />
+                        <img src="swaraya_icon.png" alt="Icon" style={{ width: 22, height: 22 }} />
                     </div>
-                    <h1>SurveyKu</h1>
+                    <h1>SwaraSurvey</h1>
                 </div>
                 <div className="header-actions">
                     {/* Offline indicator */}
                     {!isOnline && (
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: 4,
-                            padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                            background: 'var(--color-warning-light)',
-                            fontSize: '0.65rem', color: 'var(--color-warning)', fontWeight: 600,
-                        }}>
-                            <WifiOff size={12} /> Offline
+                        <div className="offline-badge">
+                            <WifiOff size={10} /> Offline
                         </div>
                     )}
-                    {/* Pending sync badge */}
-                    <button className="header-btn" onClick={() => { setShowNotifications(true); setUnreadCount(0); }}>
-                        <Bell size={18} />
+                    
+                    {/* Notification & Sync Buttons */}
+                    <button className="header-btn" onClick={() => { setShowNotifications(true); }}>
+                        <Bell size={20} />
                         {unreadCount > 0 && (
-                            <div className="badge" style={{ background: 'var(--color-error)', width: 8, height: 8, border: '2px solid var(--color-surface)' }} />
+                            <span className="notification-dot">
+                                {unreadCount > 9 ? '9+' : unreadCount}
+                            </span>
                         )}
                         {pendingCount > 0 && (
-                            <div className="badge" style={{ background: 'var(--color-warning)', width: 8, height: 8, border: '2px solid var(--color-surface)', right: -2, top: -2 }} />
+                            <span className="sync-dot">
+                                {pendingCount}
+                            </span>
                         )}
                     </button>
+
                     <div className="header-avatar" onClick={() => setShowProfile(true)}>
                         {user.profile_photo_url ? (
                             <img src={user.profile_photo_url} alt="Avatar" />
@@ -377,8 +458,8 @@ function App() {
                 {renderContent()}
             </main>
 
-            {/* Bottom Navigation */}
-            {isAdmin ? <AdminNav /> : <SurveyorNav />}
+            {/* Floating Action Menu */}
+            <FloatingMenu />
 
             {/* Profile Modal */}
             {showProfile && <ProfileModal />}

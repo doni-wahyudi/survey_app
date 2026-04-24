@@ -21,7 +21,8 @@ export const RESPONDENTS: RespondentSample[] = [
         desa: 'Dago', rt_rw: '001/005', jenis_kelamin: 'Laki-laki', usia: 48,
         pekerjaan: 'Wiraswasta', no_telp: '081234567001', status: 'surveyed',
         provinsi: 'Jawa Barat', phone: '081234567001',
-        assigned_surveyor: 'srv-001', created_at: '2026-04-15T10:00:00Z', created_by: 'adm-001'
+        surveyor_id: 'srv-001', assigned_surveyor: 'srv-001', 
+        created_at: '2026-04-15T10:00:00Z', created_by: 'adm-001'
     },
     {
         id: 'resp-002', custom_id: 'BDG-002', nama: 'Siti Aminah', nik: '3273014508820002',
@@ -30,7 +31,8 @@ export const RESPONDENTS: RespondentSample[] = [
         desa: 'Dago', rt_rw: '001/005', jenis_kelamin: 'Perempuan', usia: 41,
         pekerjaan: 'Ibu Rumah Tangga', no_telp: '081234567002', status: 'pending',
         provinsi: 'Jawa Barat', phone: '081234567002',
-        assigned_surveyor: 'srv-001', created_at: '2026-04-15T10:05:00Z', created_by: 'adm-001'
+        surveyor_id: 'srv-001', assigned_surveyor: 'srv-001', 
+        created_at: '2026-04-15T10:05:00Z', created_by: 'adm-001'
     }
 ];
 

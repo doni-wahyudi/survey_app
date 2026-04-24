@@ -32,10 +32,8 @@ export default function LoginPage() {
         <div className="login-page">
             <div className="login-card">
                 <div className="login-logo">
-                    <div className="logo-icon">
-                        <ClipboardList size={36} />
-                    </div>
-                    <h1>SurveyKu</h1>
+                    <img src="swaraya_logo.png" alt="SwaraSurvey Logo" style={{ width: 140, marginBottom: 16 }} />
+                    <h1>SwaraSurvey</h1>
                     <p>Aplikasi Surveyor & Enumerator</p>
                 </div>
 
