@@ -239,6 +239,7 @@ export default function SurveyForm({ respondentId, questionnaireId, onBack }: Pr
                 
                 const updatePayload: any = { 
                     status: 'surveyed',
+                    assigned_surveyor: user?.id,
                     updated_at: new Date().toISOString()
                 };
 

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useAuth } from '../../store/useAuth';
 import { useActivityLog, getActionLabel, getActionStyle } from '../../store/useActivityLog';
 import { useOfflineSync } from '../../store/useOfflineSync';
@@ -9,7 +10,11 @@ export default function ActivityLogViewer() {
     const { user } = useAuth();
     const { addToast } = useApp();
     const isAdmin = user?.role === 'admin';
-    const logs = useActivityLog(s => s.getRecentLogs(isAdmin ? undefined : user?.id, 50));
+    const logsState = useActivityLog(s => s.logs);
+    const logs = useMemo(() => {
+        const filtered = isAdmin ? logsState : logsState.filter(l => l.user_id === user?.id);
+        return filtered.slice(-50).reverse();
+    }, [logsState, isAdmin, user?.id]);
     const clearLogs = useActivityLog(s => s.clearLogs);
 
     // Offline sync
@@ -32,7 +37,7 @@ export default function ActivityLogViewer() {
     };
 
     return (
-        <div className="page-enter">
+        <div>
             <div className="section-header">
                 <h2 className="section-title">Log Aktivitas</h2>
                 {logs.length > 0 && (

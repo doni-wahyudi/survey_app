@@ -64,14 +64,20 @@ export default function DashboardAdmin() {
     const stats = useMemo(() => {
         const totalRespondents = data.respondents.length;
         const surveyed = data.respondents.filter(r => r.status === 'surveyed').length;
-        const pending = data.respondents.filter(r => r.status === 'pending').length;
         const rejected = data.respondents.filter(r => r.status === 'rejected').length;
+        
+        // "Menunggu" should be respondents that ARE assigned but not yet surveyed/rejected
+        const pending = data.respondents.filter(r => r.status === 'pending' && r.assigned_surveyor).length;
+        
+        // "Belum Ditugaskan" should be respondents that ARE NOT assigned and not yet surveyed/rejected
+        const unassigned = data.respondents.filter(r => r.status === 'pending' && !r.assigned_surveyor).length;
+        
         const totalResponses = data.responses.length;
         const totalMedia = data.media.length;
         const totalCensus = data.census.length;
         const totalAspirations = data.aspirations.length;
         const assigned = data.respondents.filter(r => r.assigned_surveyor).length;
-        const unassigned = data.respondents.filter(r => !r.assigned_surveyor).length;
+        
         return { totalRespondents, surveyed, pending, rejected, totalResponses, totalMedia, totalCensus, totalAspirations, assigned, unassigned };
     }, [data]);
 

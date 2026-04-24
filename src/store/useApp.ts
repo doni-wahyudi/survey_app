@@ -28,6 +28,10 @@ interface AppState {
     // Sidebar (admin desktop)
     sidebarOpen: boolean;
     toggleSidebar: () => void;
+
+    // Theme
+    theme: 'light' | 'dark';
+    toggleTheme: () => void;
 }
 
 export const useApp = create<AppState>((set) => ({
@@ -53,4 +57,12 @@ export const useApp = create<AppState>((set) => ({
 
     sidebarOpen: false,
     toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+
+    theme: (localStorage.getItem('theme') as 'light' | 'dark') || 'light',
+    toggleTheme: () => set((s) => {
+        const next = s.theme === 'light' ? 'dark' : 'light';
+        localStorage.setItem('theme', next);
+        document.documentElement.setAttribute('data-theme', next);
+        return { theme: next };
+    }),
 }));

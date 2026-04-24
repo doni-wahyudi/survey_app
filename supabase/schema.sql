@@ -121,6 +121,10 @@ CREATE TABLE IF NOT EXISTS public.aspirations (
   kabupaten TEXT,
   kecamatan TEXT,
   desa TEXT,
+  provinsi TEXT,
+  lokasi TEXT,
+  photo_url TEXT,
+  respondent_name TEXT,
   reported_by UUID REFERENCES public.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -209,6 +213,10 @@ DROP POLICY IF EXISTS "Users can insert aspirations" ON public.aspirations;
 CREATE POLICY "Users can insert aspirations" ON public.aspirations
   FOR INSERT TO authenticated WITH CHECK (auth.uid() = reported_by);
 
+DROP POLICY IF EXISTS "Users can update aspirations" ON public.aspirations;
+CREATE POLICY "Users can update aspirations" ON public.aspirations
+  FOR UPDATE TO authenticated USING (auth.uid() = reported_by OR public.is_admin());
+
 -- Media Monitoring Policies
 DROP POLICY IF EXISTS "Public can view media" ON public.media_monitoring;
 CREATE POLICY "Public can view media" ON public.media_monitoring
@@ -217,7 +225,7 @@ CREATE POLICY "Public can view media" ON public.media_monitoring
 -- Activity Logs Policies
 DROP POLICY IF EXISTS "Users can insert logs" ON public.activity_logs;
 CREATE POLICY "Users can insert logs" ON public.activity_logs
-  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+  FOR INSERT TO authenticated WITH CHECK (true);
 
 -- 5. Missing Tables Additions
 
@@ -262,11 +270,11 @@ ALTER TABLE public.insurance_data ENABLE ROW LEVEL SECURITY;
 -- Notifications Policies
 DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
 CREATE POLICY "Users can view their own notifications" ON public.notifications
-  FOR SELECT TO authenticated USING (auth.uid() = user_id);
+  FOR SELECT TO authenticated USING (true);
 
 DROP POLICY IF EXISTS "Users can update their own notifications" ON public.notifications;
 CREATE POLICY "Users can update their own notifications" ON public.notifications
-  FOR UPDATE TO authenticated USING (auth.uid() = user_id);
+  FOR UPDATE TO authenticated USING (true);
 
 -- Invitations Policies
 DROP POLICY IF EXISTS "Admins can manage invitations" ON public.user_invitations;
@@ -288,6 +296,7 @@ VALUES
   ('survey-photos', 'survey-photos', true),
   ('media-photos', 'media-photos', true),
   ('profile-photos', 'profile-photos', true),
+  ('aspiration-photos', 'aspiration-photos', true),
   ('ktp-photos', 'ktp-photos', true)
 ON CONFLICT (id) DO NOTHING;
 
@@ -297,6 +306,13 @@ CREATE POLICY "Public can view census photos" ON storage.objects FOR SELECT USIN
 
 DROP POLICY IF EXISTS "Authenticated users can upload census photos" ON storage.objects;
 CREATE POLICY "Authenticated users can upload census photos" ON storage.objects FOR INSERT TO authenticated WITH CHECK ( bucket_id = 'census-photos' );
+
+-- Set up Storage Policies for 'aspiration-photos'
+DROP POLICY IF EXISTS "Public can view aspiration photos" ON storage.objects;
+CREATE POLICY "Public can view aspiration photos" ON storage.objects FOR SELECT USING ( bucket_id = 'aspiration-photos' );
+
+DROP POLICY IF EXISTS "Authenticated users can upload aspiration photos" ON storage.objects;
+CREATE POLICY "Authenticated users can upload aspiration photos" ON storage.objects FOR INSERT TO authenticated WITH CHECK ( bucket_id = 'aspiration-photos' );
 
 -- Set up Storage Policies for 'survey-photos'
 DROP POLICY IF EXISTS "Public can view survey photos" ON storage.objects;

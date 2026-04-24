@@ -175,6 +175,7 @@ export default function RespondentManager() {
         try {
             const payload = {
                 ...form,
+                custom_id: form.custom_id || `RESP-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
                 status: editingId ? undefined : 'pending'
             };
 
@@ -271,8 +272,13 @@ export default function RespondentManager() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
                                     <span style={{ color: 'var(--color-primary)', fontWeight: 700, fontSize: 'var(--font-size-xs)' }}>[{r.custom_id || 'NO-ID'}]</span>
                                     <span style={{ fontWeight: 700, fontSize: 'var(--font-size-sm)' }}>{r.nama}</span>
-                                    <span className={`badge ${r.status === 'surveyed' ? 'badge-success' : r.status === 'rejected' ? 'badge-error' : 'badge-warning'}`}>
-                                        {getStatusLabel(r.status)}
+                                    <span className={`badge ${
+                                        r.status === 'surveyed' ? 'badge-success' : 
+                                        r.status === 'rejected' ? 'badge-error' : 
+                                        (r.status === 'pending' && !r.assigned_surveyor) ? 'badge-info' : 
+                                        'badge-warning'
+                                    }`}>
+                                        {r.status === 'pending' && !r.assigned_surveyor ? 'Belum Ditugaskan' : getStatusLabel(r.status)}
                                     </span>
                                 </div>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)', marginTop: 4 }}>

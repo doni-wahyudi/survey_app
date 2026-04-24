@@ -39,6 +39,8 @@ export function generateId(prefix: string = 'id'): string {
 export function getStatusColor(status: string): string {
     const map: Record<string, string> = {
         pending: 'var(--color-warning)',
+        in_progress: 'var(--color-info)',
+        resolved: 'var(--color-success)',
         surveyed: 'var(--color-success)',
         rejected: 'var(--color-error)',
         draft: 'var(--color-text-secondary)',
@@ -54,6 +56,8 @@ export function getStatusColor(status: string): string {
 export function getStatusLabel(status: string): string {
     const map: Record<string, string> = {
         pending: 'Menunggu',
+        in_progress: 'Diproses',
+        resolved: 'Selesai',
         surveyed: 'Selesai',
         rejected: 'Ditolak',
         draft: 'Draf',

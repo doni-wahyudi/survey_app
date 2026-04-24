@@ -59,8 +59,6 @@ export const changePassword = async (userId: string, newPassword: string) => {
     return data;
 };
 
-
-
 export async function uploadFile(bucket: string, path: string, base64Data: string) {
     if (!supabase) return null;
     
@@ -372,6 +370,13 @@ export const submitAspiration = async (data: any) => {
     const { data: result, error } = await supabase.from(TABLES.aspirations).insert(data).select().single();
     if (error) throw error;
     return result;
+};
+
+export const updateAspirationStatus = async (id: string, status: AspirationStatus) => {
+    if (!supabase) return null;
+    const { data, error } = await supabase.from(TABLES.aspirations).update({ status }).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
 };
 
 export const fetchCensus = async (): Promise<CensusData[]> => {

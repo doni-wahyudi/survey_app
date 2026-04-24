@@ -6,6 +6,8 @@ import { useState, useEffect } from 'react';
 import LoginPage from './components/LoginPage';
 import KTPCapture from './components/onboarding/KTPCapture';
 import ProfileSetup from './components/onboarding/ProfileSetup';
+import ProfileEditor from './components/profile/ProfileEditor';
+import SettingsEditor from './components/profile/SettingsEditor';
 import Toast from './components/common/Toast';
 import ActivityLogViewer from './components/common/ActivityLogViewer';
 import DashboardSurveyor from './components/dashboard/DashboardSurveyor';
@@ -19,7 +21,6 @@ import UserManager from './components/admin/UserManager';
 import SurveyResults from './components/admin/SurveyResults';
 import QuestionnaireManager from './components/admin/QuestionnaireManager';
 import NotificationList from './components/common/NotificationList';
-import ProfileEditor from './components/profile/ProfileEditor';
 import {
     ClipboardList, Home, ClipboardCheck, Newspaper, Users, MessageSquare,
     BarChart3, UserCog, FileText, Settings, LogOut, User, ChevronRight,
@@ -31,7 +32,12 @@ import type { SurveyorTab, AdminTab } from './types';
 
 function App() {
     const { user, isAuthenticated, logout } = useAuth();
-    const { surveyorTab, setSurveyorTab, adminTab, setAdminTab, addToast } = useApp();
+    const { surveyorTab, setSurveyorTab, adminTab, setAdminTab, addToast, theme } = useApp();
+    
+    // Initialize Theme
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+    }, [theme]);
     const { addLog } = useActivityLog();
     const pendingCount = useOfflineSync(s => s.getPendingCount());
     const isOnline = useOfflineSync(s => s.isOnline);
@@ -97,7 +103,7 @@ function App() {
 
     // ── Profile Modal ──
     const ProfileModal = () => {
-        const [activeView, setActiveView] = useState<'menu' | 'edit' | 'logs'>('menu');
+        const [activeView, setActiveView] = useState<'menu' | 'edit' | 'logs' | 'settings'>('menu');
 
         return (
             <div className="modal-overlay" onClick={() => setShowProfile(false)}>
@@ -148,7 +154,7 @@ function App() {
                                     </div>
                                     <ChevronRight size={16} style={{ color: 'var(--color-text-tertiary)' }} />
                                 </div>
-                                <div className="settings-item" onClick={() => { addToast('Pengaturan aplikasi (demo)', 'info'); }}>
+                                <div className="settings-item" onClick={() => setActiveView('settings')}>
                                     <div className="settings-icon" style={{ color: 'var(--color-text-secondary)' }}><Settings size={18} /></div>
                                     <div className="settings-text">
                                         <h4>Pengaturan</h4>
@@ -184,6 +190,7 @@ function App() {
                     )}
 
                     {activeView === 'edit' && <ProfileEditor onBack={() => setActiveView('menu')} />}
+                    {activeView === 'settings' && <SettingsEditor onBack={() => setActiveView('menu')} />}
                     {activeView === 'logs' && (
                         <div className="page-enter">
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
@@ -257,6 +264,7 @@ function App() {
                 case 'dashboard': return <DashboardAdmin />;
                 case 'respondent': return <RespondentManager />;
                 case 'results': return <SurveyResults />;
+                case 'aspirasi': return <AspirationList />;
                 case 'users': return <UserManager />;
                 case 'settings': return <QuestionnaireManager />;
                 default: return <DashboardAdmin />;
@@ -300,6 +308,7 @@ function App() {
             { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
             { key: 'respondent', label: 'Responden', icon: Users },
             { key: 'results', label: 'Hasil', icon: FileText },
+            { key: 'aspirasi', label: 'Aspirasi', icon: MessageSquare },
             { key: 'users', label: 'Pengguna', icon: UserCog },
             { key: 'settings', label: 'Kuesioner', icon: ClipboardList },
         ];

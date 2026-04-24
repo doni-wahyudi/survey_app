@@ -188,7 +188,7 @@ export interface InsuranceData {
 }
 
 export type SurveyorTab = 'home' | 'survey' | 'media' | 'sensus' | 'aspirasi';
-export type AdminTab = 'dashboard' | 'respondent' | 'results' | 'users' | 'settings';
+export type AdminTab = 'dashboard' | 'respondent' | 'results' | 'aspirasi' | 'users' | 'settings';
 
 export interface AppNotification {
     id: string;

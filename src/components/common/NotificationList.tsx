@@ -45,7 +45,7 @@ export default function NotificationList({ onBack }: Props) {
     };
 
     return (
-        <div className="page-enter">
+        <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
                 <button className="btn btn-icon btn-ghost" onClick={onBack}>
                     <ArrowLeft size={20} />

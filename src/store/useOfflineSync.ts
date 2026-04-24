@@ -110,14 +110,10 @@ export const useOfflineSync = create<OfflineSyncState>((set, get) => ({
 
         set({ isSyncing: true });
 
-        for (const item of pending) {
-            // Mark as syncing
-            set((state) => ({
-                queue: state.queue.map(q =>
-                    q.id === item.id ? { ...q, status: 'syncing' as const } : q
-                ),
-            }));
+        // Helper to check if string is a valid UUID
+        const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
+        for (const item of pending) {
             try {
                 let tableName = '';
                 switch (item.type) {
@@ -129,7 +125,31 @@ export const useOfflineSync = create<OfflineSyncState>((set, get) => ({
                 }
 
                 if (tableName) {
-                    const { error } = await supabase.from(tableName).insert(item.data);
+                    const dataToSync = { ...item.data };
+                    
+                    // Cleanup for specific tables
+                    if (item.type === 'activity_log') {
+                        delete dataToSync.id;
+                        if (dataToSync.timestamp) {
+                            (dataToSync as any).created_at = dataToSync.timestamp;
+                            delete dataToSync.timestamp;
+                        }
+                        // Fix UUID error: if user_id is an email, it's invalid for the DB
+                        if (dataToSync.user_id && !isUUID(String(dataToSync.user_id))) {
+                            console.warn(`Skipping sync for item ${item.id}: user_id is not a valid UUID (${dataToSync.user_id})`);
+                            set((state) => ({
+                                queue: state.queue.map(q => q.id === item.id ? { ...q, status: 'failed' as const, error: 'Invalid User UUID' } : q)
+                            }));
+                            continue;
+                        }
+                    }
+
+                    if (item.type === 'survey') {
+                        // Strip legacy/extra columns that might cause PGRST204
+                        delete (dataToSync as any).new_respondent_data;
+                    }
+
+                    const { error } = await supabase.from(tableName).insert(dataToSync);
                     
                     if (error) throw error;
 
@@ -156,8 +176,6 @@ export const useOfflineSync = create<OfflineSyncState>((set, get) => ({
         }
 
         set({ isSyncing: false });
-
-        // Auto-clean synced items
         get().clearSynced();
     },
 
