@@ -23,7 +23,7 @@ export default function CensusForm({ onBack }: Props) {
         respondent_name: '', nik: '', tempat_lahir: '', tanggal_lahir: '',
         jenis_kelamin: '', alamat: '', provinsi: user?.provinsi || '', kabupaten: '', kecamatan: '', desa: '',
         rt_rw: '', agama: '', status_perkawinan: '', pendidikan_terakhir: '',
-        pekerjaan: '', catatan: '', photo_url: '',
+        pekerjaan: '', family_head_name: '', voter_potential: 'swing', catatan: '', photo_url: '',
     });
 
     // Region lists
@@ -237,6 +237,36 @@ export default function CensusForm({ onBack }: Props) {
                 <div className="form-group">
                     <label className="form-label">Pekerjaan</label>
                     <input className="form-input" placeholder="Pekerjaan" value={form.pekerjaan} onChange={(e) => handleChange('pekerjaan', e.target.value)} />
+                </div>
+            </div>
+
+            <div className="form-group">
+                <label className="form-label">Nama Kepala Keluarga</label>
+                <input className="form-input" placeholder="Nama ayah/kepala keluarga" value={form.family_head_name} onChange={(e) => handleChange('family_head_name', e.target.value)} />
+            </div>
+
+            <div className="form-group">
+                <label className="form-label">Potensi Pemilih</label>
+                <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                    {[
+                        { id: 'loyal', label: 'Loyal', color: 'var(--color-success)' },
+                        { id: 'swing', label: 'Swing', color: 'var(--color-warning)' },
+                        { id: 'opposition', label: 'Lawan', color: 'var(--color-error)' }
+                    ].map(opt => (
+                        <button 
+                            key={opt.id}
+                            className={`filter-pill ${form.voter_potential === opt.id ? 'active' : ''}`}
+                            onClick={() => handleChange('voter_potential', opt.id)}
+                            style={{ 
+                                flex: 1, 
+                                borderColor: form.voter_potential === opt.id ? opt.color : 'var(--color-border)',
+                                background: form.voter_potential === opt.id ? opt.color : 'transparent',
+                                color: form.voter_potential === opt.id ? '#fff' : 'var(--color-text-secondary)'
+                            }}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
                 </div>
             </div>
 

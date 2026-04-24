@@ -24,7 +24,7 @@ import NotificationList from './components/common/NotificationList';
 import {
     ClipboardList, Home, ClipboardCheck, Newspaper, Users, MessageSquare,
     BarChart3, UserCog, FileText, Settings, LogOut, User, ChevronRight,
-    Bell, MapPin, Activity, WifiOff, ArrowLeft
+    Bell, MapPin, Activity, WifiOff, ArrowLeft, UserCheck
 } from 'lucide-react';
 import { supabase, TABLES } from './lib/supabase';
 
@@ -265,6 +265,7 @@ function App() {
                 case 'respondent': return <RespondentManager />;
                 case 'results': return <SurveyResults />;
                 case 'media': return <MediaMonitoringList />;
+                case 'sensus': return <CensusList />;
                 case 'aspirasi': return <AspirationList />;
                 case 'users': return <UserManager />;
                 case 'settings': return <QuestionnaireManager />;
@@ -310,6 +311,7 @@ function App() {
             { key: 'respondent', label: 'Responden', icon: Users },
             { key: 'results', label: 'Hasil', icon: FileText },
             { key: 'media', label: 'Media', icon: Newspaper },
+            { key: 'sensus', label: 'Sensus', icon: UserCheck },
             { key: 'aspirasi', label: 'Aspirasi', icon: MessageSquare },
             { key: 'users', label: 'Pengguna', icon: UserCog },
             { key: 'settings', label: 'Kuesioner', icon: ClipboardList },

@@ -149,6 +149,8 @@ export interface CensusData {
     status_perkawinan: string;
     pendidikan_terakhir: string;
     pekerjaan: string;
+    family_head_name?: string;
+    voter_potential?: 'loyal' | 'swing' | 'opposition';
     catatan: string;
     photo_url: string;
     surveyor_id: string;
@@ -191,7 +193,7 @@ export interface InsuranceData {
 }
 
 export type SurveyorTab = 'home' | 'survey' | 'media' | 'sensus' | 'aspirasi';
-export type AdminTab = 'dashboard' | 'respondent' | 'results' | 'media' | 'aspirasi' | 'users' | 'settings';
+export type AdminTab = 'dashboard' | 'respondent' | 'results' | 'media' | 'sensus' | 'aspirasi' | 'users' | 'settings';
 
 export interface AppNotification {
     id: string;
