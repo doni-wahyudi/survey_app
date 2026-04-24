@@ -27,6 +27,7 @@ import {
     BarChart3, UserCog, FileText, Settings, LogOut, User, ChevronRight,
     Bell, MapPin, Activity, WifiOff, ArrowLeft, UserCheck, Menu, X
 } from 'lucide-react';
+import { App as CapApp } from '@capacitor/app';
 import { supabase, TABLES } from './lib/supabase';
 
 import type { SurveyorTab, AdminTab } from './types';
@@ -100,6 +101,7 @@ function App() {
     }, [user?.id]);
 
     const [isLoading, setIsLoading] = useState(true);
+    const [isOpen, setIsOpen] = useState(false); // Floating Menu State
 
     // Initial Loading Simulation
     useEffect(() => {
@@ -108,6 +110,41 @@ function App() {
         }, 2000);
         return () => clearTimeout(timer);
     }, []);
+    
+    // Hardware Back Button Handling
+    useEffect(() => {
+        const handleBackButton = async () => {
+            // Close floating menu if open
+            if (isOpen) {
+                setIsOpen(false);
+                return;
+            }
+
+            // If Admin is on any tab other than dashboard, go back to dashboard
+            if (user?.role === 'admin' && adminTab !== 'dashboard') {
+                setAdminTab('dashboard');
+                return;
+            }
+
+            // If Surveyor is on any tab other than home, go back to home
+            if (user?.role === 'surveyor' && surveyorTab !== 'home') {
+                setSurveyorTab('home');
+                return;
+            }
+
+            // If we are showing notifications, hide them
+            if (showNotifications) {
+                setShowNotifications(false);
+                return;
+            }
+        };
+
+        const listener = CapApp.addListener('backButton', handleBackButton);
+        
+        return () => {
+            listener.then(l => l.remove());
+        };
+    }, [isOpen, adminTab, surveyorTab, user, showNotifications]);
 
     // Not authenticated → Login
     if (!isAuthenticated || !user) {
@@ -337,7 +374,6 @@ function App() {
 
     // ── Floating Menu (FAB) ──
     const FloatingMenu = () => {
-        const [isOpen, setIsOpen] = useState(false);
         const userPermissions = user?.permissions || ['home', 'survey', 'media', 'sensus', 'aspirasi'];
 
         const adminTabs: { key: AdminTab; label: string; icon: any }[] = [

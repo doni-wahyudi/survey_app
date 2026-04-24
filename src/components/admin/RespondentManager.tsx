@@ -66,13 +66,21 @@ export default function RespondentManager() {
         if (!supabase) return;
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from(TABLES.respondentSamples)
-                .select('*, assigned_surveyor:surveyor_id(full_name)')
-                .order('created_at', { ascending: false });
+            // Fetch respondents and surveyors in parallel
+            const [respResponse, survResponse] = await Promise.all([
+                supabase.from(TABLES.respondentSamples).select('*').order('created_at', { ascending: false }),
+                supabase.from(TABLES.profiles).select('id, full_name').eq('role', 'surveyor')
+            ]);
 
-            if (error) throw error;
-            setRespondents((data || []) as RespondentSample[]);
+            if (respResponse.error) throw respResponse.error;
+            
+            const surveyors = survResponse.data || [];
+            const mergedData = (respResponse.data || []).map(r => ({
+                ...r,
+                assigned_surveyor: surveyors.find(s => s.id === r.surveyor_id)
+            }));
+
+            setRespondents(mergedData as RespondentSample[]);
         } catch (error) {
             console.error('Error fetching data:', error);
             addToast('Gagal mengambil data', 'error');

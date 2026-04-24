@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-    appId: 'com.surveyku.app',
-    appName: 'SurveyKu',
+    appId: 'com.swarasurvey.app',
+    appName: 'SwaraSurvey',
     webDir: 'dist',
     server: {
         androidScheme: 'https'
